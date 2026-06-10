@@ -1,51 +1,105 @@
 import { StockPrice } from '../types'
 
-interface YahooChartResult {
-  meta: { regularMarketPrice: number; currency: string; symbol: string }
-  timestamp: number[]
-  indicators: {
-    quote: [{ close: (number | null)[] }]
+// Per-month cache.
+// Key: "twse:STOCK:YYYY-MM" or "tpex:STOCK:YYYY-MM"
+// Past months are cached forever (historical data never changes).
+// Current month refreshes every 30 minutes (new trades arrive through the day).
+interface MonthEntry { prices: StockPrice[]; fetchedAt: number }
+const monthCache = new Map<string, MonthEntry>()
+const CURRENT_TTL = 30 * 60 * 1000
+
+function isPast(year: number, month: number): boolean {
+  const now = new Date()
+  return year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)
+}
+
+// "115/06/09"  →  "2026-06-09"
+function rocToISO(rocDate: string): string {
+  const [y, m, d] = rocDate.split('/')
+  return `${parseInt(y, 10) + 1911}-${m}-${d}`
+}
+
+async function fetchTWSEMonth(stockCode: string, year: number, month: number): Promise<StockPrice[]> {
+  const key = `twse:${stockCode}:${year}-${String(month).padStart(2, '0')}`
+  const cached = monthCache.get(key)
+  if (cached && (isPast(year, month) || Date.now() - cached.fetchedAt < CURRENT_TTL)) return cached.prices
+
+  try {
+    const date = `${year}${String(month).padStart(2, '0')}01`
+    const res = await fetch(`/api/twse?stockNo=${encodeURIComponent(stockCode)}&date=${date}`)
+    if (!res.ok) return []
+
+    const json = await res.json() as { stat: string; fields?: string[]; data?: string[][] }
+    if (json.stat !== 'OK' || !json.data?.length || !json.fields) return []
+
+    const closeIdx = json.fields.indexOf('收盤價')
+    if (closeIdx === -1) return []
+
+    const prices: StockPrice[] = json.data.flatMap(row => {
+      const raw = row[closeIdx].replace(/,/g, '').trim()
+      if (!raw || raw === '--') return []
+      const close = parseFloat(raw)
+      return isNaN(close) ? [] : [{ date: rocToISO(row[0]), close }]
+    })
+
+    monthCache.set(key, { prices, fetchedAt: Date.now() })
+    return prices
+  } catch {
+    return []
   }
 }
 
-interface YahooResponse {
-  chart: {
-    result: YahooChartResult[] | null
-    error: { code: string; description: string } | null
+async function fetchTPExMonth(stockCode: string, year: number, month: number): Promise<StockPrice[]> {
+  const key = `tpex:${stockCode}:${year}-${String(month).padStart(2, '0')}`
+  const cached = monthCache.get(key)
+  if (cached && (isPast(year, month) || Date.now() - cached.fetchedAt < CURRENT_TTL)) return cached.prices
+
+  try {
+    // TPEX uses ROC calendar in the date parameter
+    const rocYear = year - 1911
+    const d = `${rocYear}/${String(month).padStart(2, '0')}/01`
+    const res = await fetch(`/api/tpex?stkno=${encodeURIComponent(stockCode)}&d=${encodeURIComponent(d)}`)
+    if (!res.ok) return []
+
+    const json = await res.json() as { iTotalRecords?: number; aaData?: string[][] }
+    if (!json.aaData?.length) return []
+
+    // TPEX aaData column order: 日期(0) 成交股數(1) 成交金額(2) 開盤(3) 最高(4) 最低(5) 收盤(6) 漲跌(7) 筆數(8)
+    const prices: StockPrice[] = json.aaData.flatMap(row => {
+      const raw = row[6]?.replace(/,/g, '').trim()
+      if (!raw || raw === '--') return []
+      const close = parseFloat(raw)
+      return isNaN(close) ? [] : [{ date: rocToISO(row[0]), close }]
+    })
+
+    monthCache.set(key, { prices, fetchedAt: Date.now() })
+    return prices
+  } catch {
+    return []
   }
 }
 
-const cache = new Map<string, { prices: StockPrice[]; fetchedAt: number }>()
-const CACHE_TTL = 4 * 60 * 60 * 1000 // 4 hours
+async function collectAllMonths(
+  fetcher: (year: number, month: number) => Promise<StockPrice[]>,
+  fromDate: string,
+): Promise<StockPrice[]> {
+  const from = new Date(fromDate)
+  const today = new Date()
 
-function rangeForDays(days: number): string {
-  if (days > 730) return '5y'
-  if (days > 365) return '2y'
-  if (days > 180) return '1y'
-  if (days > 90) return '6mo'
-  if (days > 30) return '3mo'
-  return '1mo'
-}
-
-async function fetchFromYahoo(ticker: string, range: string): Promise<YahooChartResult> {
-  const yPath = encodeURIComponent(`/v8/finance/chart/${encodeURIComponent(ticker)}`)
-  const url = `/api/yahoo?path=${yPath}&interval=1d&range=${range}`
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-
-  if (!res.ok) {
-    // Try to surface the Yahoo Finance error description for better diagnostics
-    let detail = `HTTP ${res.status}`
-    try {
-      const body: YahooResponse = await res.json()
-      if (body.chart?.error?.description) detail = body.chart.error.description
-    } catch { /* response wasn't JSON — leave detail as HTTP status */ }
-    throw new Error(detail)
+  const months: { year: number; month: number }[] = []
+  let cur = new Date(from.getFullYear(), from.getMonth(), 1)
+  const end = new Date(today.getFullYear(), today.getMonth(), 1)
+  while (cur <= end) {
+    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 })
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
   }
 
-  const data: YahooResponse = await res.json()
-  if (data.chart?.error) throw new Error(data.chart.error.description)
-  if (!data.chart?.result?.length) throw new Error(`查無股票 ${ticker}`)
-  return data.chart.result[0]
+  // Browser naturally limits concurrent fetches to ~6; no manual batching needed
+  const results = await Promise.all(months.map(({ year, month }) => fetcher(year, month)))
+  return results
+    .flat()
+    .filter(p => p.date >= fromDate)
+    .sort((a, b) => a.date.localeCompare(b.date))
 }
 
 export async function fetchStockPrices(
@@ -53,43 +107,26 @@ export async function fetchStockPrices(
   fromDate: string,
   forceRefresh = false,
 ): Promise<StockPrice[]> {
-  const cacheKey = `${stockCode}:${fromDate}`
-  const cached = cache.get(cacheKey)
-  if (!forceRefresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
-    return cached.prices
+  if (forceRefresh) clearPriceCache(stockCode)
+
+  // Try TWSE (listed stocks) first, fall back to TPEx (OTC stocks)
+  let prices = await collectAllMonths((y, m) => fetchTWSEMonth(stockCode, y, m), fromDate)
+
+  if (prices.length === 0) {
+    prices = await collectAllMonths((y, m) => fetchTPExMonth(stockCode, y, m), fromDate)
   }
 
-  const days = Math.ceil((Date.now() - new Date(fromDate).getTime()) / 86400000)
-  const range = rangeForDays(days + 30)
+  if (prices.length === 0) throw new Error(`查無股票 ${stockCode}`)
 
-  // Try TWSE (.TW) first; fall back to TPEx (.TWO) if not found
-  let result: YahooChartResult
-  try {
-    result = await fetchFromYahoo(`${stockCode}.TW`, range)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    // Only retry with .TWO when the first attempt was a "not found" style error
-    if (msg.includes('404') || msg.includes('No fundamentals') || msg.includes('查無')) {
-      result = await fetchFromYahoo(`${stockCode}.TWO`, range)
-    } else {
-      throw err
-    }
-  }
-
-  const { timestamp, indicators } = result
-  const closes = indicators.quote[0].close
-
-  const prices: StockPrice[] = []
-  for (let i = 0; i < timestamp.length; i++) {
-    if (closes[i] == null) continue
-    const dateStr = new Date(timestamp[i] * 1000).toISOString().slice(0, 10)
-    if (dateStr >= fromDate) prices.push({ date: dateStr, close: closes[i]! })
-  }
-
-  cache.set(cacheKey, { prices, fetchedAt: Date.now() })
   return prices
 }
 
-export function clearPriceCache() {
-  cache.clear()
+export function clearPriceCache(stockCode?: string) {
+  if (stockCode) {
+    for (const key of [...monthCache.keys()]) {
+      if (key.includes(`:${stockCode}:`)) monthCache.delete(key)
+    }
+  } else {
+    monthCache.clear()
+  }
 }
