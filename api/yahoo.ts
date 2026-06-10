@@ -2,8 +2,13 @@ export const config = { runtime: 'edge' }
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
-  const targetPath = url.pathname.replace(/^\/api\/yahoo/, '')
-  const targetUrl = `https://query2.finance.yahoo.com${targetPath}${url.search}`
+
+  // Yahoo Finance path is passed as ?path=... to avoid Vercel treating
+  // ticker symbols with dot-extensions (e.g. 00981A.TW) as static files.
+  const yPath = url.searchParams.get('path') ?? ''
+  url.searchParams.delete('path')
+
+  const targetUrl = `https://query2.finance.yahoo.com${yPath}${url.search}`
 
   const upstream = await fetch(targetUrl, {
     headers: {

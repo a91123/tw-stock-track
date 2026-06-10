@@ -28,8 +28,8 @@ function rangeForDays(days: number): string {
 }
 
 async function fetchFromYahoo(ticker: string, range: string): Promise<YahooChartResult> {
-  const encoded = encodeURIComponent(ticker)
-  const url = `/api/yahoo/v8/finance/chart/${encoded}?interval=1d&range=${range}`
+  const yPath = encodeURIComponent(`/v8/finance/chart/${encodeURIComponent(ticker)}`)
+  const url = `/api/yahoo?path=${yPath}&interval=1d&range=${range}`
   const res = await fetch(url, { headers: { Accept: 'application/json' } })
 
   if (!res.ok) {
