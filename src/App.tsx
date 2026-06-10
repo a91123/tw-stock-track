@@ -9,6 +9,7 @@ import PnLChart from './components/PnLChart'
 import PortfolioSummary from './components/PortfolioSummary'
 import Holdings from './components/Holdings'
 import ReturnCalendar from './components/ReturnCalendar'
+import ImportScreenshot from './components/ImportScreenshot'
 
 export default function App() {
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>('tw-stock-transactions', [])
@@ -90,6 +91,10 @@ export default function App() {
     setTransactions([...transactions, { ...tx, id: crypto.randomUUID() }])
   }
 
+  function addTransactions(txs: Omit<Transaction, 'id'>[]) {
+    setTransactions([...transactions, ...txs.map(tx => ({ ...tx, id: crypto.randomUUID() }))])
+  }
+
   function deleteTransaction(id: string) {
     setTransactions(transactions.filter(t => t.id !== id))
   }
@@ -151,6 +156,7 @@ export default function App() {
         )}
 
         {/* Input + list */}
+        <ImportScreenshot onAddMany={addTransactions} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
           <TransactionForm onAdd={addTransaction} />
           <TransactionList transactions={transactions} onDelete={deleteTransaction} />
