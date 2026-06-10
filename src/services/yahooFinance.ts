@@ -26,7 +26,10 @@ async function fetchTWSEMonth(stockCode: string, year: number, month: number): P
 
   try {
     const date = `${year}${String(month).padStart(2, '0')}01`
-    const res = await fetch(`/api/twse?stockNo=${encodeURIComponent(stockCode)}&date=${date}`)
+    const res = await fetch(
+      `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY` +
+      `?stockNo=${encodeURIComponent(stockCode)}&date=${date}&response=json`,
+    )
     if (!res.ok) return []
 
     const json = await res.json() as { stat: string; fields?: string[]; data?: string[][] }
@@ -58,7 +61,10 @@ async function fetchTPExMonth(stockCode: string, year: number, month: number): P
     // TPEX uses ROC calendar in the date parameter
     const rocYear = year - 1911
     const d = `${rocYear}/${String(month).padStart(2, '0')}/01`
-    const res = await fetch(`/api/tpex?stkno=${encodeURIComponent(stockCode)}&d=${encodeURIComponent(d)}`)
+    const res = await fetch(
+      `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php` +
+      `?l=zh-tw&d=${encodeURIComponent(d)}&stkno=${encodeURIComponent(stockCode)}&o=json`,
+    )
     if (!res.ok) return []
 
     const json = await res.json() as { iTotalRecords?: number; aaData?: string[][] }
