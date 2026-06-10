@@ -42,9 +42,8 @@ function buildWeeks(year: number, month: number, pnlMap: Map<string, number>): C
 function fmtAmt(v: number): string {
   const abs = Math.abs(v)
   const sign = v >= 0 ? '+' : '-'
-  if (abs >= 10000) return `${sign}${(abs / 10000).toFixed(1)}萬`
-  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}K`
-  return `${sign}${abs}`
+  if (abs >= 10_000) return `${sign}${(abs / 10_000).toFixed(2)}萬`
+  return `${sign}${Math.round(abs).toLocaleString('zh-TW')}`
 }
 
 interface Props {
