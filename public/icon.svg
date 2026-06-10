@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="56" y1="180" x2="456" y2="180" stroke="#1e3a5f" stroke-width="2" opacity="0.6"/>
+  <line x1="56" y1="260" x2="456" y2="260" stroke="#1e3a5f" stroke-width="2" opacity="0.6"/>
+  <line x1="56" y1="340" x2="456" y2="340" stroke="#1e3a5f" stroke-width="2" opacity="0.6"/>
+
+  <!-- Bars (Taiwan convention: red = rising/profitable) -->
+  <rect x="68"  y="320" width="52" height="100" rx="8" fill="#dc2626" opacity="0.55"/>
+  <rect x="148" y="280" width="52" height="140" rx="8" fill="#dc2626" opacity="0.65"/>
+  <rect x="228" y="250" width="52" height="170" rx="8" fill="#dc2626" opacity="0.75"/>
+  <rect x="308" y="205" width="52" height="215" rx="8" fill="#dc2626" opacity="0.88"/>
+  <rect x="388" y="163" width="52" height="257" rx="8" fill="#ef4444"/>
+
+  <!-- Trend line (cyan, connects midpoints of bar tops) -->
+  <polyline
+    points="94,320 174,280 254,250 334,205 414,163"
+    fill="none"
+    stroke="#22d3ee"
+    stroke-width="13"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Glowing dot at top-right of trend line -->
+  <circle cx="414" cy="163" r="18" fill="#0f172a"/>
+  <circle cx="414" cy="163" r="12" fill="#22d3ee"/>
+</svg>
