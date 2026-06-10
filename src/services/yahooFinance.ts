@@ -40,10 +40,18 @@ export async function fetchStockPrices(
 
   const days = Math.ceil((Date.now() - new Date(fromDate).getTime()) / 86400000)
   const range = rangeForDays(days + 30)
-  const ticker = encodeURIComponent(`${stockCode}.TW`)
-  const url = `/api/yahoo/v8/finance/chart/${ticker}?interval=1d&range=${range}`
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  // Try TWSE (.TW) first, fall back to TPEx (.TWO) for OTC-listed securities
+  // (e.g. leveraged/inverse ETFs and stocks with letter suffixes like 00981A)
+  async function tryFetch(suffix: string) {
+    const ticker = encodeURIComponent(`${stockCode}.${suffix}`)
+    const url = `/api/yahoo/v8/finance/chart/${ticker}?interval=1d&range=${range}`
+    const r = await fetch(url, { headers: { Accept: 'application/json' } })
+    return r
+  }
+
+  let res = await tryFetch('TW')
+  if (res.status === 404) res = await tryFetch('TWO')
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 
   const data: YahooResponse = await res.json()
