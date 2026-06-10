@@ -27,6 +27,27 @@ function rangeForDays(days: number): string {
   return '1mo'
 }
 
+async function fetchFromYahoo(ticker: string, range: string): Promise<YahooChartResult> {
+  const encoded = encodeURIComponent(ticker)
+  const url = `/api/yahoo/v8/finance/chart/${encoded}?interval=1d&range=${range}`
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+
+  if (!res.ok) {
+    // Try to surface the Yahoo Finance error description for better diagnostics
+    let detail = `HTTP ${res.status}`
+    try {
+      const body: YahooResponse = await res.json()
+      if (body.chart?.error?.description) detail = body.chart.error.description
+    } catch { /* response wasn't JSON — leave detail as HTTP status */ }
+    throw new Error(detail)
+  }
+
+  const data: YahooResponse = await res.json()
+  if (data.chart?.error) throw new Error(data.chart.error.description)
+  if (!data.chart?.result?.length) throw new Error(`查無股票 ${ticker}`)
+  return data.chart.result[0]
+}
+
 export async function fetchStockPrices(
   stockCode: string,
   fromDate: string,
@@ -41,17 +62,21 @@ export async function fetchStockPrices(
   const days = Math.ceil((Date.now() - new Date(fromDate).getTime()) / 86400000)
   const range = rangeForDays(days + 30)
 
-  const ticker = encodeURIComponent(`${stockCode}.TW`)
-  const url = `/api/yahoo/v8/finance/chart/${ticker}?interval=1d&range=${range}`
+  // Try TWSE (.TW) first; fall back to TPEx (.TWO) if not found
+  let result: YahooChartResult
+  try {
+    result = await fetchFromYahoo(`${stockCode}.TW`, range)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Only retry with .TWO when the first attempt was a "not found" style error
+    if (msg.includes('404') || msg.includes('No fundamentals') || msg.includes('查無')) {
+      result = await fetchFromYahoo(`${stockCode}.TWO`, range)
+    } else {
+      throw err
+    }
+  }
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
-
-  const data: YahooResponse = await res.json()
-  if (data.chart.error) throw new Error(data.chart.error.description)
-  if (!data.chart.result?.length) throw new Error(`查無股票 ${stockCode}`)
-
-  const { timestamp, indicators } = data.chart.result[0]
+  const { timestamp, indicators } = result
   const closes = indicators.quote[0].close
 
   const prices: StockPrice[] = []
