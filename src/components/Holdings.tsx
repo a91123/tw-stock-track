@@ -8,14 +8,12 @@ function fmtNum(v: number, decimals = 0) {
   return v.toLocaleString('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
-function PnLCell({ value, suffix = '' }: { value: number | null; suffix?: string }) {
+function PnLText({ value, suffix = '' }: { value: number | null; suffix?: string }) {
   if (value === null) return <span className="text-gray-300">—</span>
   const cls = value >= 0 ? 'text-red-600' : 'text-green-600'
   return (
-    <span className={`${cls} font-medium tabular-nums`}>
-      {value >= 0 ? '+' : ''}
-      {fmtNum(value)}
-      {suffix}
+    <span className={`${cls} font-semibold tabular-nums`}>
+      {value >= 0 ? '+' : ''}{fmtNum(value)}{suffix}
     </span>
   )
 }
@@ -24,9 +22,11 @@ export default function Holdings({ holdings }: Props) {
   if (holdings.length === 0) return null
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
       <h2 className="text-sm font-semibold text-gray-700 mb-4">目前持倉</h2>
-      <div className="overflow-x-auto">
+
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-sm min-w-[620px]">
           <thead>
             <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
@@ -52,10 +52,10 @@ export default function Holdings({ holdings }: Props) {
                   {h.marketValue !== null ? fmtNum(h.marketValue) : <span className="text-gray-300">—</span>}
                 </td>
                 <td className="py-3 text-right">
-                  <PnLCell value={h.unrealizedPnL} />
+                  <PnLText value={h.unrealizedPnL} />
                 </td>
                 <td className="py-3 text-right">
-                  <PnLCell
+                  <PnLText
                     value={h.returnRate !== null ? Math.round(h.returnRate * 100) / 100 : null}
                     suffix="%"
                   />
@@ -64,6 +64,47 @@ export default function Holdings({ holdings }: Props) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="sm:hidden space-y-3">
+        {holdings.map(h => (
+          <div key={h.stockCode} className="rounded-lg border border-gray-100 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-base text-gray-900">{h.stockCode}</span>
+              <PnLText
+                value={h.returnRate !== null ? Math.round(h.returnRate * 100) / 100 : null}
+                suffix="%"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-400">持股數</span>
+                <span className="text-gray-700 tabular-nums">{h.totalShares.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">市值</span>
+                <span className="text-gray-700 tabular-nums">
+                  {h.marketValue !== null ? fmtNum(h.marketValue) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">均攤成本</span>
+                <span className="text-gray-700 tabular-nums">{fmtNum(h.avgCost, 2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">現價</span>
+                <span className="text-gray-700 tabular-nums">
+                  {h.currentPrice !== null ? fmtNum(h.currentPrice, 2) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between col-span-2">
+                <span className="text-gray-400">未實現損益</span>
+                <PnLText value={h.unrealizedPnL} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

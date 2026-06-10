@@ -93,7 +93,7 @@ export default function ReturnCalendar({ data }: Props) {
   const roundedTotal = Math.round(monthTotal)
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-xl p-3 sm:p-5 shadow-sm border border-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -157,7 +157,7 @@ export default function ReturnCalendar({ data }: Props) {
               <div
                 key={cell.dateStr!}
                 style={{ backgroundColor: bg }}
-                className={`rounded-lg p-1.5 flex flex-col min-h-[56px] relative ${
+                className={`rounded-lg p-1 sm:p-1.5 flex flex-col min-h-[44px] sm:min-h-[56px] relative ${
                   cell.isToday
                     ? isIntradayCell
                       ? 'ring-2 ring-amber-400 ring-inset'   // 盤中：橘色框

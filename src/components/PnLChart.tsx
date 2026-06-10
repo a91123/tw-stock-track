@@ -60,7 +60,7 @@ export default function PnLChart({ data }: Props) {
   }))
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+    <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-700">損益走勢</h2>
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
@@ -89,8 +89,8 @@ export default function PnLChart({ data }: Props) {
           <p className="text-xs text-gray-400">每個交易日的損益變化（紅＝當日獲利、綠＝當日虧損）</p>
           {intraday && <span className="text-xs text-amber-500 font-medium">今日盤中數字未定</span>}
         </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 300}>
+            <BarChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval={tickInterval} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={60} />
@@ -124,8 +124,8 @@ export default function PnLChart({ data }: Props) {
       {tab === 'cumulative' && (
         <>
           <p className="text-xs text-gray-400 mb-3">從第一筆交易起的累計總損益走勢</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 300}>
+            <AreaChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={cumulColor} stopOpacity={0.25} />
