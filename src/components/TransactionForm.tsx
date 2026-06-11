@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Transaction, TransactionType } from '../types'
 
 interface Props {
@@ -6,6 +6,13 @@ interface Props {
 }
 
 export default function TransactionForm({ onAdd }: Props) {
+  const submitRef = useRef<HTMLButtonElement>(null)
+
+  // 手機上鍵盤會擋住表單下半部 — 股數填完後自動把價格欄和按鈕滑進畫面
+  function scrollToSubmit() {
+    if (window.innerWidth >= 1024) return
+    setTimeout(() => submitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+  }
   const [stockCode, setStockCode] = useState('')
   const [type, setType] = useState<TransactionType>('buy')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -91,6 +98,7 @@ export default function TransactionForm({ onAdd }: Props) {
               type="number"
               value={shares}
               onChange={e => setShares(e.target.value)}
+              onBlur={() => { if (stockCode && shares) scrollToSubmit() }}
               placeholder="例如: 1000"
               min="1"
               step="1"
@@ -125,6 +133,7 @@ export default function TransactionForm({ onAdd }: Props) {
         </div>
 
         <button
+          ref={submitRef}
           type="submit"
           className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
         >
