@@ -12,7 +12,7 @@ import PnLChart from './components/PnLChart'
 import PortfolioSummary from './components/PortfolioSummary'
 import Holdings from './components/Holdings'
 import ReturnCalendar from './components/ReturnCalendar'
-import ImportScreenshot from './components/ImportScreenshot'
+import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
@@ -223,7 +223,7 @@ export default function App() {
         {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
 
         {/* Input + list */}
-        <ImportScreenshot onAddMany={addTransactions} />
+        <ImportTransactions onAddMany={addTransactions} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
           <TransactionForm onAdd={addTransaction} />
           <TransactionList transactions={transactions} onDelete={deleteTransaction} />
