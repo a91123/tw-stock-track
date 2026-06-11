@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Transaction } from './types'
-import { fetchStockPrices, clearPriceCache } from './services/yahooFinance'
+import { fetchStockPrices } from './services/stockPrices'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings } from './utils/pnl'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import TransactionForm from './components/TransactionForm'
@@ -17,11 +17,6 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-
-  // Clear cache on every app load → always fetch fresh prices on open
-  useEffect(() => {
-    clearPriceCache()
-  }, [])
 
   // Stable primitive key — changes only when actual stock list or earliest date changes
   const fetchKey = useMemo(() => {
@@ -68,7 +63,6 @@ export default function App() {
 
   function handleRefresh() {
     if (!fetchKey) return
-    clearPriceCache()
     const [codesStr, minDate] = fetchKey.split('|')
     void loadPrices(codesStr.split(','), minDate, true)
   }
@@ -164,7 +158,7 @@ export default function App() {
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-300">
-        股價資料來源：Yahoo Finance｜資料僅供參考，不構成投資建議
+        股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議
       </footer>
     </div>
   )

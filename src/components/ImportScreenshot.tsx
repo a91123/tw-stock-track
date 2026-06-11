@@ -19,8 +19,9 @@ async function fileToBase64Jpeg(file: File, maxDim = 1600): Promise<string> {
 }
 
 function isValidTx(tx: ParsedTx): boolean {
+  // 4 digits = stocks, 5-6 digits = ETFs (00878) / warrants, optional letter suffix (00878B)
   return (
-    /^\d{4}[A-Z]?$/.test(tx.stockCode) &&
+    /^\d{4,6}[A-Z]?$/.test(tx.stockCode) &&
     (tx.type === 'buy' || tx.type === 'sell') &&
     /^\d{4}-\d{2}-\d{2}$/.test(tx.date) &&
     tx.shares > 0 &&
@@ -233,7 +234,7 @@ export default function ImportScreenshot({ onAddMany }: Props) {
                         <input
                           value={tx.stockCode}
                           onChange={e => updateRow(i, { stockCode: e.target.value.toUpperCase() })}
-                          className="w-14 px-1 py-1 border border-gray-200 rounded"
+                          className="w-16 px-1 py-1 border border-gray-200 rounded"
                         />
                       </td>
                       <td className="px-1 py-1">
