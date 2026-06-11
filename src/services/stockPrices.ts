@@ -102,10 +102,12 @@ async function fetchTWSEMonth(stockCode: string, year: number, month: number): P
   const cached = cacheGet(key, year, month)
   if (cached) return cached
 
-  // 走 Vercel 代理 (api/twse.ts)：CDN 快取讓多裝置/多使用者共享，限流回應會被擋成 429
+  // 證交所有開 CORS，瀏覽器直連 — 千萬不要走伺服器代理：
+  // 證交所會封鎖海外機房 IP（Vercel 函式打不進去），使用者自己的 IP 反而暢通
   const date = `${year}${String(month).padStart(2, '0')}01`
   const json = (await fetchJson(
-    `/api/twse?stockNo=${encodeURIComponent(stockCode)}&date=${date}&response=json`,
+    `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY` +
+    `?stockNo=${encodeURIComponent(stockCode)}&date=${date}&response=json`,
   )) as { stat: string; fields?: string[]; data?: string[][] }
 
   const stat = json.stat ?? ''
