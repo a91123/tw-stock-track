@@ -8,10 +8,10 @@ export interface CsvParseResult {
 // Column aliases, lowercased. Header row is matched against these.
 const HEADER_ALIASES: Record<keyof ParsedTx, string[]> = {
   stockCode: ['代碼', '股票代碼', '股票代號', '代號', 'stockcode', 'code', 'symbol'],
-  type: ['類型', '買賣', '買賣別', '交易別', 'type'],
+  type: ['類型', '買賣', '買賣別', '交易別', '交易種類', 'type'],
   date: ['日期', '成交日期', '交易日期', 'date'],
-  shares: ['股數', '數量', '成交股數', 'shares', 'quantity', 'qty'],
-  price: ['價格', '成交價', '成交價格', '單價', 'price'],
+  shares: ['股數', '數量', '成交股數', '成交數量', 'shares', 'quantity', 'qty'],
+  price: ['價格', '成交價', '成交價格', '成交均價', '均價', '單價', 'price'],
 }
 
 const DEFAULT_ORDER: (keyof ParsedTx)[] = ['stockCode', 'type', 'date', 'shares', 'price']
@@ -38,7 +38,9 @@ function splitLine(line: string): string[] {
 function parseType(raw: string): ParsedTx['type'] | null {
   const v = raw.toLowerCase()
   if (v === 'buy' || /買/.test(raw)) return 'buy'
-  if (v === 'sell' || /賣/.test(raw)) return 'sell'
+  if (v === 'sell' || /賣|融券/.test(raw)) return 'sell'
+  // 券商「未實現/庫存明細」匯出：現股、融資都是持有中的買進部位
+  if (/現股|融資/.test(raw)) return 'buy'
   return null
 }
 
@@ -59,7 +61,7 @@ function parseNumber(raw: string): number {
 
 export function parseCsv(text: string): CsvParseResult {
   const lines = text
-    .replace(/^﻿/, '') // strip BOM
+    .replace(/^\uFEFF/, '') // strip BOM
     .split(/\r\n|\r|\n/)
     .filter(l => l.trim() !== '')
 
