@@ -125,11 +125,10 @@ async function fetchTPExMonth(stockCode: string, year: number, month: number): P
   const cached = cacheGet(key, year, month)
   if (cached) return cached
 
-  // 櫃買中心新版 API（舊版 st43_result.php 已下線）
+  // 櫃買中心 API 沒開放 CORS，瀏覽器無法直接呼叫 — 走 Vercel 函式代理 (api/tpex.ts)
   const d = `${year}/${String(month).padStart(2, '0')}/01`
   const json = (await fetchJson(
-    `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock` +
-    `?code=${encodeURIComponent(stockCode)}&date=${encodeURIComponent(d)}&response=json`,
+    `/api/tpex?code=${encodeURIComponent(stockCode)}&date=${encodeURIComponent(d)}`,
   )) as { tables?: { data?: string[][] }[] }
 
   // data 欄位順序: 日期(0) 成交仟股(1) 成交仟元(2) 開盤(3) 最高(4) 最低(5) 收盤(6) 漲跌(7) 筆數(8)

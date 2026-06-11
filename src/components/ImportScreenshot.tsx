@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import * as Sentry from '@sentry/react'
 import { Transaction } from '../types'
 import { ParsedTx, parseScreenshot, loadGeminiKey, saveGeminiKey } from '../services/gemini'
 
@@ -70,6 +71,7 @@ export default function ImportScreenshot({ onAddMany }: Props) {
         setParsed(txs)
       }
     } catch (err) {
+      Sentry.captureException(err, { tags: { feature: 'screenshot-import' } })
       setError(err instanceof Error ? err.message : '辨識失敗，請再試一次')
     } finally {
       setLoading(false)

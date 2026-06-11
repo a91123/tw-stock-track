@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import * as Sentry from '@sentry/react'
 import { Transaction } from './types'
 import { fetchStockPrices } from './services/stockPrices'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings } from './utils/pnl'
@@ -53,6 +54,7 @@ export default function App() {
           prices.forEach(p => m.set(p.date, p.close))
           newMap.set(code, m)
         } catch (err) {
+          Sentry.captureException(err, { tags: { feature: 'stock-prices' }, extra: { code } })
           errors.push(`${code}: ${err instanceof Error ? err.message : '未知錯誤'}`)
         }
       }),
