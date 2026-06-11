@@ -25,32 +25,45 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  // Stable primitive key — changes only when actual stock list or earliest date changes
+  // Stable primitive key — changes only when stock list or any per-stock earliest date changes.
+  // 每檔股票記錄「自己的」第一筆交易日 — 用整體最早日期會讓晚掛牌的股票
+  // 去查一堆掛牌前的空月份，白白消耗證交所的請求額度甚至被限流
   const fetchKey = useMemo(() => {
     if (transactions.length === 0) return ''
-    const codes = [...new Set(transactions.map(t => t.stockCode))].sort().join(',')
-    const minDate = transactions.reduce((m, t) => (t.date < m ? t.date : m), transactions[0].date)
-    return `${codes}|${minDate}`
+    const minByCode = new Map<string, string>()
+    for (const t of transactions) {
+      const cur = minByCode.get(t.stockCode)
+      if (!cur || t.date < cur) minByCode.set(t.stockCode, t.date)
+    }
+    return [...minByCode.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([code, date]) => `${code}:${date}`)
+      .join(',')
   }, [transactions])
+
+  function parseFetchKey(key: string): { code: string; minDate: string }[] {
+    return key.split(',').map(pair => {
+      const [code, minDate] = pair.split(':')
+      return { code, minDate }
+    })
+  }
 
   useEffect(() => {
     if (!fetchKey) {
       setPricesByStock(new Map())
       return
     }
-    const [codesStr, minDate] = fetchKey.split('|')
-    const codes = codesStr.split(',')
-    void loadPrices(codes, minDate, false)
+    void loadPrices(parseFetchKey(fetchKey), false)
   }, [fetchKey])
 
-  async function loadPrices(codes: string[], minDate: string, force: boolean) {
+  async function loadPrices(stocks: { code: string; minDate: string }[], force: boolean) {
     setLoading(true)
     setError(null)
     const errors: string[] = []
     const newMap = new Map<string, Map<string, number>>()
 
     await Promise.allSettled(
-      codes.map(async code => {
+      stocks.map(async ({ code, minDate }) => {
         try {
           const prices = await fetchStockPrices(code, minDate, force)
           const m = new Map<string, number>()
@@ -71,8 +84,7 @@ export default function App() {
 
   function handleRefresh() {
     if (!fetchKey) return
-    const [codesStr, minDate] = fetchKey.split('|')
-    void loadPrices(codesStr.split(','), minDate, true)
+    void loadPrices(parseFetchKey(fetchKey), true)
   }
 
   function updateFeeSettings(s: FeeSettings) {
