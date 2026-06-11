@@ -46,7 +46,6 @@ export default function PnLChart({ data }: Props) {
 
   const latestTotal = data[data.length - 1].totalPnL
   const cumulColor = latestTotal >= 0 ? UP_COLOR : DOWN_COLOR
-  const tickInterval = Math.max(0, Math.floor(data.length / 14) - 1)
   const intraday = isTradingHours()
   const today = todayTW()
 
@@ -92,7 +91,7 @@ export default function PnLChart({ data }: Props) {
           <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 300}>
             <BarChart data={chartData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval={tickInterval} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={60} />
               <Tooltip
                 formatter={(value: number) => [fmtTooltipValue(value), '當日損益']}
@@ -133,7 +132,7 @@ export default function PnLChart({ data }: Props) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval={tickInterval} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={60} />
               <Tooltip
                 formatter={(value: number, name: string) => [fmtTooltipValue(value), CUMULATIVE_LABELS[name] ?? name]}
