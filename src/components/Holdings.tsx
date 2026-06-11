@@ -2,6 +2,7 @@ import { HoldingData } from '../utils/pnl'
 
 interface Props {
   holdings: HoldingData[]
+  isRealtime?: boolean
 }
 
 function fmtNum(v: number, decimals = 0) {
@@ -18,12 +19,20 @@ function PnLText({ value, suffix = '' }: { value: number | null; suffix?: string
   )
 }
 
-export default function Holdings({ holdings }: Props) {
+export default function Holdings({ holdings, isRealtime }: Props) {
   if (holdings.length === 0) return null
 
   return (
     <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">目前持倉</h2>
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-sm font-semibold text-gray-700">目前持倉</h2>
+        {isRealtime && (
+          <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            盤中即時
+          </span>
+        )}
+      </div>
 
       {/* Desktop table */}
       <div className="hidden sm:block overflow-x-auto">

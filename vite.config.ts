@@ -16,6 +16,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: p => p.replace(/^\/api\/tpex/, '/www/zh-tw/afterTrading/tradingStock'),
       },
+      '/api/mis': {
+        target: 'https://mis.twse.com.tw',
+        changeOrigin: true,
+        headers: { Referer: 'https://mis.twse.com.tw/stock/index.jsp' },
+        rewrite: p => p.replace(/^\/api\/mis/, '/stock/api/getStockInfo.jsp') + '&json=1&delay=0',
+      },
     },
   },
   plugins: [

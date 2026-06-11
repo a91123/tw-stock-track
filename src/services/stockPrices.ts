@@ -175,6 +175,13 @@ async function collectAllMonths(
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// 記錄每檔股票屬於上市 (tse) 或上櫃 (otc) — 即時報價的 MIS 查詢需要這個前綴
+const stockMarkets = new Map<string, 'tse' | 'otc'>()
+
+export function getStockMarket(stockCode: string): 'tse' | 'otc' | undefined {
+  return stockMarkets.get(stockCode)
+}
+
 export async function fetchStockPrices(
   stockCode: string,
   fromDate: string,
@@ -191,14 +198,18 @@ export async function fetchStockPrices(
 
   // 先查證交所（上市），查無資料再查櫃買中心（上櫃）
   let prices = await collectAllMonths((y, m) => fetchTWSEMonth(stockCode, y, m), fromDate)
-
-  if (prices.length === 0) {
-    prices = await collectAllMonths((y, m) => fetchTPExMonth(stockCode, y, m), fromDate)
+  if (prices.length > 0) {
+    stockMarkets.set(stockCode, 'tse')
+    return prices
   }
 
-  if (prices.length === 0) throw new Error(`查無股票 ${stockCode}`)
+  prices = await collectAllMonths((y, m) => fetchTPExMonth(stockCode, y, m), fromDate)
+  if (prices.length > 0) {
+    stockMarkets.set(stockCode, 'otc')
+    return prices
+  }
 
-  return prices
+  throw new Error(`查無股票 ${stockCode}`)
 }
 
 export function clearPriceCache(stockCode?: string): void {

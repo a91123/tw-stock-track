@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import * as Sentry from '@sentry/react'
 import { Transaction } from './types'
-import { fetchStockPrices } from './services/stockPrices'
+import { fetchStockPrices, getStockMarket } from './services/stockPrices'
+import { fetchRealtimeQuotes, StockSymbol } from './services/realtimeQuotes'
+import { isTradingHours } from './utils/market'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings } from './utils/pnl'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import TransactionForm from './components/TransactionForm'
@@ -18,6 +20,7 @@ export default function App() {
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>('tw-stock-transactions', [])
   const [pricesByStock, setPricesByStock] = useState<Map<string, Map<string, number>>>(new Map())
   const [feeSettings, setFeeSettings] = useState<FeeSettings>(() => loadFeeSettings())
+  const [realtimePrices, setRealtimePrices] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -81,7 +84,38 @@ export default function App() {
     () => calculateDailyPnL(transactions, pricesByStock, feeSettings),
     [transactions, pricesByStock, feeSettings],
   )
-  const summary = useMemo(() => computeSummary(dailyPnL), [dailyPnL])
+
+  // 盤中即時報價：開盤時間每 30 秒輪詢一次（MIS 批次查詢），分頁不在前景時暫停。
+  // 失敗靜默跳過，畫面維持上一次的價格。
+  useEffect(() => {
+    if (pricesByStock.size === 0) return
+
+    async function tick() {
+      if (!isTradingHours() || document.hidden) return
+      const symbols: StockSymbol[] = []
+      pricesByStock.forEach((_, code) => {
+        const market = getStockMarket(code)
+        if (market) symbols.push({ code, market })
+      })
+      if (symbols.length === 0) return
+      try {
+        const quotes = await fetchRealtimeQuotes(symbols)
+        if (quotes.size > 0) {
+          setRealtimePrices(quotes)
+          setLastUpdated(new Date())
+        }
+      } catch { /* 即時價丟一拍無感，下一輪再試 */ }
+    }
+
+    void tick()
+    const timer = window.setInterval(() => void tick(), 30_000)
+    const onVisible = () => { if (!document.hidden) void tick() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [pricesByStock])
 
   const currentPrices = useMemo(() => {
     const m = new Map<string, number>()
@@ -89,13 +123,33 @@ export default function App() {
       const sorted = [...prices.entries()].sort(([a], [b]) => b.localeCompare(a))
       if (sorted.length > 0) m.set(code, sorted[0][1])
     })
+    // 盤中即時價覆蓋最近收盤價
+    realtimePrices.forEach((price, code) => m.set(code, price))
     return m
-  }, [pricesByStock])
+  }, [pricesByStock, realtimePrices])
 
   const holdings = useMemo(
     () => getCurrentHoldings(transactions, currentPrices, feeSettings),
     [transactions, currentPrices, feeSettings],
   )
+
+  // 總覽：收盤後以每日損益的最新一筆為準；盤中有即時價時改用持股現值計算
+  const summary = useMemo(() => {
+    const base = computeSummary(dailyPnL)
+    if (realtimePrices.size === 0 || holdings.length === 0) return base
+    const portfolioValue = holdings.reduce((s, h) => s + (h.marketValue ?? 0), 0)
+    const costBasis = holdings.reduce((s, h) => s + h.totalShares * h.avgCost, 0)
+    const unrealizedPnL = portfolioValue - costBasis
+    const totalPnL = unrealizedPnL + base.realizedPnL
+    return {
+      ...base,
+      portfolioValue,
+      costBasis,
+      unrealizedPnL,
+      totalPnL,
+      returnRate: costBasis > 0 ? (totalPnL / costBasis) * 100 : 0,
+    }
+  }, [dailyPnL, holdings, realtimePrices])
 
   function addTransaction(tx: Omit<Transaction, 'id'>) {
     setTransactions([...transactions, { ...tx, id: crypto.randomUUID() }])
@@ -152,7 +206,7 @@ export default function App() {
             <PortfolioSummary summary={summary} loading={loading} />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
-            {holdings.length > 0 && <Holdings holdings={holdings} />}
+            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} />}
           </>
         )}
 
