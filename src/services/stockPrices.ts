@@ -7,8 +7,8 @@ import { StockPrice } from '../types'
 // - 當月資料每 30 分鐘過期重抓
 // 所有對外請求經過全域節流（每個請求間隔 350ms）+ 失敗重試，避免被證交所限流。
 
-// v2: v1 曾把證交所限流回應誤存成「無資料」，污染了快取 — 換 key 作廢舊資料
-const CACHE_KEY = 'tw-stock-price-month-cache-v2'
+// v3: 舊版曾把證交所限流時的「偽裝成查無資料」回應存進快取 — 換 key 作廢舊資料
+const CACHE_KEY = 'tw-stock-price-month-cache-v3'
 const CURRENT_TTL = 30 * 60 * 1000
 const REQUEST_GAP = 600
 const MAX_RETRIES = 2
@@ -51,6 +51,9 @@ function cacheGet(key: string, year: number, month: number): StockPrice[] | null
 }
 
 function cacheSet(key: string, prices: StockPrice[]): void {
+  // 空結果一律不快取：證交所限流時的回應可能偽裝成「查無資料」，
+  // 存起來會永久污染快取。空結果每次重查，成本由 CDN 層吸收。
+  if (prices.length === 0) return
   monthCache.set(key, { prices, fetchedAt: Date.now() })
   persistCache()
 }

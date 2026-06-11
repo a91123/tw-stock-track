@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!upstream.ok) {
       return res.status(502).json({ error: `TWSE ${upstream.status}` })
     }
-    const json = (await upstream.json()) as { stat?: string }
+    const json = (await upstream.json()) as { stat?: string; data?: unknown[] }
 
     // 合法回應只有兩種：有資料（OK）或真的查無資料；其他都當限流處理
     const stat = json.stat ?? ''
@@ -25,7 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(429).json({ error: 'TWSE rate limited', stat })
     }
 
-    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=86400')
+    // 只快取「真的有資料」的回應 — 限流回應可能偽裝成查無資料，
+    // 進了 CDN 會污染所有使用者 30 分鐘
+    if (stat === 'OK' && Array.isArray(json.data) && json.data.length > 0) {
+      res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=86400')
+    } else {
+      res.setHeader('Cache-Control', 'no-store')
+    }
     return res.status(200).json(json)
   } catch {
     return res.status(502).json({ error: 'TWSE unreachable' })

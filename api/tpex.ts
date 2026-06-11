@@ -16,9 +16,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!upstream.ok) {
       return res.status(502).json({ error: `TPEx ${upstream.status}` })
     }
-    const json = await upstream.json()
-    // 歷史月資料不常變 — 讓 Vercel CDN 快取 30 分鐘，減少對櫃買的請求
-    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=86400')
+    const json = (await upstream.json()) as { tables?: { data?: unknown[] }[] }
+    // 只快取「真的有資料」的回應，空回應可能是上游異常，不能污染 CDN
+    if (json.tables?.[0]?.data?.length) {
+      res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=86400')
+    } else {
+      res.setHeader('Cache-Control', 'no-store')
+    }
     return res.status(200).json(json)
   } catch {
     return res.status(502).json({ error: 'TPEx unreachable' })
