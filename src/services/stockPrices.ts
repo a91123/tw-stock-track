@@ -167,10 +167,11 @@ async function collectAllMonths(
   fromDate: string,
 ): Promise<StockPrice[]> {
   // 並發發出即可 — throttle() 會把實際請求排成序列；已快取的月份直接返回不佔節流額度
+  // 注意：不要過濾掉 fromDate 之前的價格 — 若第一筆交易是「今天」（尚無收盤價），
+  // 過濾會把僅有的資料全部丟光，誤判成「查無股票」。損益計算會自行對齊交易日。
   const results = await Promise.all(monthsBetween(fromDate).map(({ year, month }) => fetcher(year, month)))
   return results
     .flat()
-    .filter(p => p.date >= fromDate)
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
