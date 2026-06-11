@@ -10,8 +10,13 @@ import { StockPrice } from '../types'
 // v3: 舊版曾把證交所限流時的「偽裝成查無資料」回應存進快取 — 換 key 作廢舊資料
 const CACHE_KEY = 'tw-stock-price-month-cache-v3'
 const CURRENT_TTL = 30 * 60 * 1000
+// 查無資料的月份（掛牌前、下市後）也快取，但給較短的 TTL：
+// 永不快取會讓這些月份每次開 app 都重查，反而把證交所打到限流
+const EMPTY_TTL = 6 * 60 * 60 * 1000
 const REQUEST_GAP = 600
 const MAX_RETRIES = 2
+// 連線層級失敗（被封鎖/斷線）後的冷卻時間 — 期間內所有請求直接快速失敗
+const CIRCUIT_COOLDOWN = 60 * 1000
 
 export class PriceFetchError extends Error {}
 
@@ -46,14 +51,18 @@ function isPast(year: number, month: number): boolean {
 function cacheGet(key: string, year: number, month: number): StockPrice[] | null {
   const entry = monthCache.get(key)
   if (!entry) return null
-  if (isPast(year, month) || Date.now() - entry.fetchedAt < CURRENT_TTL) return entry.prices
+  const age = Date.now() - entry.fetchedAt
+  if (entry.prices.length === 0) {
+    // 空結果只信任一段時間：過去月份 6 小時、當月 30 分鐘。
+    // 限流偽裝成「查無資料」時最多錯 6 小時，會自我修復；
+    // 但不能永不快取 — 掛牌前的月份每次重查會把證交所打到封鎖
+    return age < (isPast(year, month) ? EMPTY_TTL : CURRENT_TTL) ? entry.prices : null
+  }
+  if (isPast(year, month) || age < CURRENT_TTL) return entry.prices
   return null
 }
 
 function cacheSet(key: string, prices: StockPrice[]): void {
-  // 空結果一律不快取：證交所限流時的回應可能偽裝成「查無資料」，
-  // 存起來會永久污染快取。空結果每次重查，成本由 CDN 層吸收。
-  if (prices.length === 0) return
   monthCache.set(key, { prices, fetchedAt: Date.now() })
   persistCache()
 }
@@ -73,15 +82,26 @@ async function throttle(): Promise<void> {
   if (wait > 0) await new Promise(r => setTimeout(r, wait))
 }
 
+// 斷路器：一個請求重試到死都連不上，代表整個來源被封鎖了，
+// 冷卻期間內排隊中的其他請求直接快速失敗，不要繼續轟炸讓封鎖加劇
+let circuitOpenUntil = 0
+
 async function fetchJson(url: string): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
+    if (Date.now() < circuitOpenUntil) {
+      throw new PriceFetchError('股價伺服器連線失敗（可能暫時被限流），請等一分鐘後再試')
+    }
     await throttle()
+    if (Date.now() < circuitOpenUntil) {
+      throw new PriceFetchError('股價伺服器連線失敗（可能暫時被限流），請等一分鐘後再試')
+    }
     try {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return await res.json()
     } catch {
       if (attempt >= MAX_RETRIES) {
+        circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN
         throw new PriceFetchError('股價伺服器連線失敗（可能暫時被限流），請稍後再試')
       }
       // 退避後重試：1s、2s
