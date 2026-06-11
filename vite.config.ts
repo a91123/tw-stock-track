@@ -3,6 +3,21 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // 本機開發時模擬 Vercel 函式代理（api/twse.ts、api/tpex.ts），直接轉發到官方 API
+  server: {
+    proxy: {
+      '/api/twse': {
+        target: 'https://www.twse.com.tw',
+        changeOrigin: true,
+        rewrite: p => p.replace(/^\/api\/twse/, '/rwd/zh/afterTrading/STOCK_DAY'),
+      },
+      '/api/tpex': {
+        target: 'https://www.tpex.org.tw',
+        changeOrigin: true,
+        rewrite: p => p.replace(/^\/api\/tpex/, '/www/zh-tw/afterTrading/tradingStock'),
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

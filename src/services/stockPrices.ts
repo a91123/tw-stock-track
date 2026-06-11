@@ -7,9 +7,10 @@ import { StockPrice } from '../types'
 // - 當月資料每 30 分鐘過期重抓
 // 所有對外請求經過全域節流（每個請求間隔 350ms）+ 失敗重試，避免被證交所限流。
 
-const CACHE_KEY = 'tw-stock-price-month-cache'
+// v2: v1 曾把證交所限流回應誤存成「無資料」，污染了快取 — 換 key 作廢舊資料
+const CACHE_KEY = 'tw-stock-price-month-cache-v2'
 const CURRENT_TTL = 30 * 60 * 1000
-const REQUEST_GAP = 350
+const REQUEST_GAP = 600
 const MAX_RETRIES = 2
 
 export class PriceFetchError extends Error {}
@@ -98,15 +99,15 @@ async function fetchTWSEMonth(stockCode: string, year: number, month: number): P
   const cached = cacheGet(key, year, month)
   if (cached) return cached
 
+  // 走 Vercel 代理 (api/twse.ts)：CDN 快取讓多裝置/多使用者共享，限流回應會被擋成 429
   const date = `${year}${String(month).padStart(2, '0')}01`
   const json = (await fetchJson(
-    `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY` +
-    `?stockNo=${encodeURIComponent(stockCode)}&date=${date}&response=json`,
+    `/api/twse?stockNo=${encodeURIComponent(stockCode)}&date=${date}&response=json`,
   )) as { stat: string; fields?: string[]; data?: string[][] }
 
-  // stat !== 'OK' 代表查無資料（例如上櫃股票），不是錯誤
+  const stat = json.stat ?? ''
   let prices: StockPrice[] = []
-  if (json.stat === 'OK' && json.data?.length && json.fields) {
+  if (stat === 'OK' && json.data?.length && json.fields) {
     const closeIdx = json.fields.indexOf('收盤價')
     if (closeIdx !== -1) {
       prices = json.data.flatMap(row => {
@@ -114,6 +115,9 @@ async function fetchTWSEMonth(stockCode: string, year: number, month: number): P
         return close === null ? [] : [{ date: rocToISO(row[0]), close }]
       })
     }
+  } else if (!stat.includes('沒有符合') && stat !== 'OK') {
+    // 不是「查無資料」也不是 OK → 限流或異常回應，絕對不能存進快取
+    throw new PriceFetchError('證交所查詢過於頻繁，請等一分鐘後再按「更新股價」')
   }
 
   cacheSet(key, prices)
@@ -128,7 +132,7 @@ async function fetchTPExMonth(stockCode: string, year: number, month: number): P
   // 櫃買中心 API 沒開放 CORS，瀏覽器無法直接呼叫 — 走 Vercel 函式代理 (api/tpex.ts)
   const d = `${year}/${String(month).padStart(2, '0')}/01`
   const json = (await fetchJson(
-    `/api/tpex?code=${encodeURIComponent(stockCode)}&date=${encodeURIComponent(d)}`,
+    `/api/tpex?code=${encodeURIComponent(stockCode)}&date=${encodeURIComponent(d)}&response=json`,
   )) as { tables?: { data?: string[][] }[] }
 
   // data 欄位順序: 日期(0) 成交仟股(1) 成交仟元(2) 開盤(3) 最高(4) 最低(5) 收盤(6) 漲跌(7) 筆數(8)
