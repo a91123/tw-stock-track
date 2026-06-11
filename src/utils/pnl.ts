@@ -107,7 +107,9 @@ export function calculateDailyPnL(
     const unrealizedPnL = portfolioValue - costBasis
     const totalPnL = unrealizedPnL + realizedPnL
     const dailyChange = result.length > 0 ? totalPnL - result[result.length - 1].totalPnL : totalPnL
-    result.push({ date, portfolioValue, costBasis, unrealizedPnL, realizedPnL, totalPnL, dailyChange })
+    const prevValue = result.length > 0 ? result[result.length - 1].portfolioValue : 0
+    const dailyChangePercent = prevValue > 0 ? (dailyChange / prevValue) * 100 : null
+    result.push({ date, portfolioValue, costBasis, unrealizedPnL, realizedPnL, totalPnL, dailyChange, dailyChangePercent })
   }
 
   return result

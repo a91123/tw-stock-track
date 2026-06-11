@@ -23,6 +23,7 @@ export interface DailyPortfolioData {
   realizedPnL: number
   totalPnL: number
   dailyChange: number // today's totalPnL minus previous day's totalPnL
+  dailyChangePercent: number | null // dailyChange ÷ previous day's portfolioValue; null when no base
 }
 
 export interface PortfolioSummaryData {

@@ -56,6 +56,7 @@ export default function PnLChart({ data }: Props) {
     unrealizedPnL: Math.round(d.unrealizedPnL),
     realizedPnL: Math.round(d.realizedPnL),
     dailyChange: Math.round(d.dailyChange),
+    dailyChangePercent: d.dailyChangePercent,
   }))
 
   return (
@@ -94,7 +95,11 @@ export default function PnLChart({ data }: Props) {
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} interval="preserveStartEnd" minTickGap={28} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={60} />
               <Tooltip
-                formatter={(value: number) => [fmtTooltipValue(value), '當日損益']}
+                formatter={(value: number, _name: string, item: { payload?: { dailyChangePercent?: number | null } }) => {
+                  const pct = item?.payload?.dailyChangePercent
+                  const pctStr = pct != null ? `（${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%）` : ''
+                  return [`${fmtTooltipValue(value)}${pctStr}`, '當日損益']
+                }}
                 labelFormatter={(_: string, payload) => `日期：${payload?.[0]?.payload?.fullDate ?? ''}`}
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
                 cursor={{ fill: '#f9fafb' }}

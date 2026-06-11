@@ -8,31 +8,39 @@ interface Cell {
   day: number | null
   dateStr: string | null
   change: number | null
+  changePercent: number | null
   isToday: boolean
 }
 
-function buildWeeks(year: number, month: number, pnlMap: Map<string, number>): Cell[][] {
+interface DayPnL {
+  change: number
+  changePercent: number | null
+}
+
+function buildWeeks(year: number, month: number, pnlMap: Map<string, DayPnL>): Cell[][] {
   const today = todayTW()
   const firstDay = new Date(year, month - 1, 1)
   const daysInMonth = new Date(year, month, 0).getDate()
   const startOffset = (firstDay.getDay() + 6) % 7 // Mon=0 … Sun=6
 
   const cells: Cell[] = Array.from({ length: startOffset }, () => ({
-    day: null, dateStr: null, change: null, isToday: false,
+    day: null, dateStr: null, change: null, changePercent: null, isToday: false,
   }))
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const pnl = pnlMap.get(dateStr)
     cells.push({
       day: d,
       dateStr,
-      change: pnlMap.get(dateStr) ?? null,
+      change: pnl?.change ?? null,
+      changePercent: pnl?.changePercent ?? null,
       isToday: dateStr === today,
     })
   }
 
   while (cells.length % 7 !== 0)
-    cells.push({ day: null, dateStr: null, change: null, isToday: false })
+    cells.push({ day: null, dateStr: null, change: null, changePercent: null, isToday: false })
 
   const weeks: Cell[][] = []
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
@@ -46,6 +54,10 @@ function fmtAmt(v: number): string {
   return `${sign}${Math.round(abs).toLocaleString('zh-TW')}`
 }
 
+function fmtPct(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+}
+
 interface Props {
   data: DailyPortfolioData[]
 }
@@ -57,8 +69,8 @@ export default function ReturnCalendar({ data }: Props) {
   const intraday = isTradingHours()
 
   const pnlMap = useMemo(() => {
-    const m = new Map<string, number>()
-    data.forEach(d => m.set(d.date, d.dailyChange))
+    const m = new Map<string, DayPnL>()
+    data.forEach(d => m.set(d.date, { change: d.dailyChange, changePercent: d.dailyChangePercent }))
     return m
   }, [data])
 
@@ -183,12 +195,24 @@ export default function ReturnCalendar({ data }: Props) {
                         {fmtAmt(Math.round(cell.change))}
                       </span>
                     )}
+                    {cell.changePercent !== null && (
+                      <span className="text-gray-400" style={{ fontSize: '9px', lineHeight: 1.2 }}>
+                        {fmtPct(cell.changePercent)}
+                      </span>
+                    )}
                   </div>
                 ) : (
                   cell.change !== null && (
-                    <span className={`mt-auto font-medium ${amtColor}`} style={{ fontSize: '10px', lineHeight: 1.3 }}>
-                      {fmtAmt(Math.round(cell.change))}
-                    </span>
+                    <div className="mt-auto flex flex-col gap-0.5">
+                      <span className={`font-medium ${amtColor}`} style={{ fontSize: '10px', lineHeight: 1.3 }}>
+                        {fmtAmt(Math.round(cell.change))}
+                      </span>
+                      {cell.changePercent !== null && (
+                        <span className={amtColor} style={{ fontSize: '9px', lineHeight: 1.2, opacity: 0.75 }}>
+                          {fmtPct(cell.changePercent)}
+                        </span>
+                      )}
+                    </div>
                   )
                 )}
               </div>
