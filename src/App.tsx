@@ -10,10 +10,13 @@ import PortfolioSummary from './components/PortfolioSummary'
 import Holdings from './components/Holdings'
 import ReturnCalendar from './components/ReturnCalendar'
 import ImportScreenshot from './components/ImportScreenshot'
+import FeeSettingsBar from './components/FeeSettingsBar'
+import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 export default function App() {
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>('tw-stock-transactions', [])
   const [pricesByStock, setPricesByStock] = useState<Map<string, Map<string, number>>>(new Map())
+  const [feeSettings, setFeeSettings] = useState<FeeSettings>(() => loadFeeSettings())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -67,7 +70,15 @@ export default function App() {
     void loadPrices(codesStr.split(','), minDate, true)
   }
 
-  const dailyPnL = useMemo(() => calculateDailyPnL(transactions, pricesByStock), [transactions, pricesByStock])
+  function updateFeeSettings(s: FeeSettings) {
+    setFeeSettings(s)
+    saveFeeSettings(s)
+  }
+
+  const dailyPnL = useMemo(
+    () => calculateDailyPnL(transactions, pricesByStock, feeSettings),
+    [transactions, pricesByStock, feeSettings],
+  )
   const summary = useMemo(() => computeSummary(dailyPnL), [dailyPnL])
 
   const currentPrices = useMemo(() => {
@@ -79,7 +90,10 @@ export default function App() {
     return m
   }, [pricesByStock])
 
-  const holdings = useMemo(() => getCurrentHoldings(transactions, currentPrices), [transactions, currentPrices])
+  const holdings = useMemo(
+    () => getCurrentHoldings(transactions, currentPrices, feeSettings),
+    [transactions, currentPrices, feeSettings],
+  )
 
   function addTransaction(tx: Omit<Transaction, 'id'>) {
     setTransactions([...transactions, { ...tx, id: crypto.randomUUID() }])
@@ -148,6 +162,9 @@ export default function App() {
             <p className="text-xs">在下方新增第一筆買入紀錄，系統將自動從 Yahoo Finance 抓取歷史股價</p>
           </div>
         )}
+
+        {/* Fee settings */}
+        {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
 
         {/* Input + list */}
         <ImportScreenshot onAddMany={addTransactions} />

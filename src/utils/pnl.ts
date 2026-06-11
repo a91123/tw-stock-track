@@ -1,4 +1,5 @@
 import { Transaction, DailyPortfolioData, PortfolioSummaryData } from '../types'
+import { FeeSettings, tradeFee, sellTax } from './fees'
 
 interface Lot {
   shares: number
@@ -10,6 +11,7 @@ type PositionMap = Map<string, Lot[]>
 function applyTransactionsUpTo(
   transactions: Transaction[],
   date: string,
+  fees: FeeSettings,
 ): { positions: PositionMap; realizedPnL: number } {
   const positions: PositionMap = new Map()
   let realizedPnL = 0
@@ -25,8 +27,12 @@ function applyTransactionsUpTo(
     if (!positions.has(tx.stockCode)) positions.set(tx.stockCode, [])
     const lots = positions.get(tx.stockCode)!
 
+    const amount = tx.shares * tx.price
+
     if (tx.type === 'buy') {
-      lots.push({ shares: tx.shares, costPerShare: tx.price })
+      // 買入手續費攤入成本
+      const fee = fees.enabled ? tradeFee(amount, fees.discount) : 0
+      lots.push({ shares: tx.shares, costPerShare: (amount + fee) / tx.shares })
     } else {
       // FIFO sell
       let remaining = tx.shares
@@ -37,6 +43,10 @@ function applyTransactionsUpTo(
         lot.shares -= toSell
         remaining -= toSell
         if (lot.shares === 0) lots.shift()
+      }
+      // 賣出手續費 + 證交稅直接從已實現損益扣除
+      if (fees.enabled) {
+        realizedPnL -= tradeFee(amount, fees.discount) + sellTax(amount, tx.stockCode)
       }
     }
   }
@@ -62,6 +72,7 @@ function lastKnownPrice(
 export function calculateDailyPnL(
   transactions: Transaction[],
   pricesByStock: Map<string, Map<string, number>>,
+  fees: FeeSettings,
 ): DailyPortfolioData[] {
   if (transactions.length === 0) return []
 
@@ -79,7 +90,7 @@ export function calculateDailyPnL(
   const result: DailyPortfolioData[] = []
 
   for (const date of [...allDates].sort()) {
-    const { positions, realizedPnL } = applyTransactionsUpTo(transactions, date)
+    const { positions, realizedPnL } = applyTransactionsUpTo(transactions, date, fees)
 
     let portfolioValue = 0
     let costBasis = 0
@@ -127,10 +138,11 @@ export interface HoldingData {
 export function getCurrentHoldings(
   transactions: Transaction[],
   currentPrices: Map<string, number>,
+  fees: FeeSettings,
 ): HoldingData[] {
   if (transactions.length === 0) return []
   const today = new Date().toISOString().slice(0, 10)
-  const { positions } = applyTransactionsUpTo(transactions, today)
+  const { positions } = applyTransactionsUpTo(transactions, today, fees)
   const holdings: HoldingData[] = []
 
   positions.forEach((lots, stockCode) => {
