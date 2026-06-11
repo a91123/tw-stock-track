@@ -138,9 +138,11 @@ export default function ReturnCalendar({ data }: Props) {
 
             const ratio = cell.change !== null && maxAbs > 0
               ? Math.min(Math.abs(cell.change) / maxAbs, 1) : 0
-            // Intraday cell: half opacity to signal uncertainty
+            // Alpha capped at 0.45 — keeps the heatmap readable and the
+            // overlaid red-700/green-700 text legible at max intensity.
+            // Intraday cell: low fixed opacity to signal uncertainty.
             const alpha = cell.change !== null && cell.change !== 0
-              ? (isIntradayCell ? 0.18 : 0.15 + ratio * 0.7)
+              ? (isIntradayCell ? 0.15 : 0.1 + ratio * 0.35)
               : 0
 
             const bg = cell.change === null || cell.change === 0 ? undefined
