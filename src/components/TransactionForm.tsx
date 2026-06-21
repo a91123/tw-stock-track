@@ -70,11 +70,20 @@ export default function TransactionForm({ onAdd }: Props) {
               <button
                 type="button"
                 onClick={() => setType('sell')}
-                className={`flex-1 text-sm font-medium transition-colors ${
+                className={`flex-1 text-sm font-medium transition-colors border-l border-gray-200 ${
                   type === 'sell' ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 賣出
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('dividend')}
+                className={`flex-1 text-sm font-medium transition-colors border-l border-gray-200 ${
+                  type === 'dividend' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                股利
               </button>
             </div>
           </div>
@@ -93,7 +102,9 @@ export default function TransactionForm({ onAdd }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">股數</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              {type === 'dividend' ? '配息股數' : '股數'}
+            </label>
             <input
               type="number"
               value={shares}
@@ -107,7 +118,9 @@ export default function TransactionForm({ onAdd }: Props) {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">每股價格（元）</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              {type === 'dividend' ? '每股股利（元）' : '每股價格（元）'}
+            </label>
             <input
               type="number"
               value={price}

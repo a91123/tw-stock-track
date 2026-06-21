@@ -10,6 +10,12 @@ function fmtDate(s: string) {
   return `${y}/${m}/${d}`
 }
 
+const TYPE_META: Record<string, { label: string; cls: string }> = {
+  buy: { label: '買入', cls: 'bg-green-100 text-green-700' },
+  sell: { label: '賣出', cls: 'bg-red-100 text-red-700' },
+  dividend: { label: '股利', cls: 'bg-blue-100 text-blue-700' },
+}
+
 export default function TransactionList({ transactions, onDelete }: Props) {
   const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date))
 
@@ -43,10 +49,8 @@ export default function TransactionList({ transactions, onDelete }: Props) {
                   <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 group">
                     <td className="py-2 font-semibold text-gray-900">{tx.stockCode}</td>
                     <td className="py-2">
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                        tx.type === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        {tx.type === 'buy' ? '買入' : '賣出'}
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${TYPE_META[tx.type].cls}`}>
+                        {TYPE_META[tx.type].label}
                       </span>
                     </td>
                     <td className="py-2 text-gray-500 text-xs">{fmtDate(tx.date)}</td>
@@ -74,10 +78,8 @@ export default function TransactionList({ transactions, onDelete }: Props) {
           <div className="sm:hidden space-y-2 max-h-72 overflow-auto">
             {sorted.map(tx => (
               <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
-                  tx.type === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
-                  {tx.type === 'buy' ? '買入' : '賣出'}
+                <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${TYPE_META[tx.type].cls}`}>
+                  {TYPE_META[tx.type].label}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

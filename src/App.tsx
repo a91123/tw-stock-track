@@ -4,13 +4,16 @@ import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, StockSymbol } from './services/realtimeQuotes'
 import { isTradingHours } from './utils/market'
-import { calculateDailyPnL, computeSummary, getCurrentHoldings } from './utils/pnl'
+import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails } from './utils/pnl'
+import { buildCashFlows, xirr } from './utils/xirr'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import TransactionForm from './components/TransactionForm'
 import TransactionList from './components/TransactionList'
 import PnLChart from './components/PnLChart'
 import PortfolioSummary from './components/PortfolioSummary'
+import AnnualizedReturn from './components/AnnualizedReturn'
 import Holdings from './components/Holdings'
+import StockDetails from './components/StockDetails'
 import ReturnCalendar from './components/ReturnCalendar'
 import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
@@ -145,6 +148,18 @@ export default function App() {
     [transactions, currentPrices, feeSettings],
   )
 
+  const stockDetails = useMemo(
+    () => getStockDetails(transactions, currentPrices, feeSettings),
+    [transactions, currentPrices, feeSettings],
+  )
+
+  // 整體年化報酬率（XIRR）
+  const annualized = useMemo(() => {
+    const { flows, incompletePrices } = buildCashFlows(transactions, currentPrices, feeSettings)
+    const r = xirr(flows)
+    return { value: r === null ? null : r * 100, incompletePrices }
+  }, [transactions, currentPrices, feeSettings])
+
   // 總覽：收盤後以每日損益的最新一筆為準；盤中有即時價時改用持股現值計算
   const summary = useMemo(() => {
     const base = computeSummary(dailyPnL)
@@ -216,9 +231,11 @@ export default function App() {
         {hasData && (
           <>
             <PortfolioSummary summary={summary} loading={loading} />
+            <AnnualizedReturn value={annualized.value} incompletePrices={annualized.incompletePrices} />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} />}
+            {stockDetails.length > 0 && <StockDetails details={stockDetails} />}
           </>
         )}
 

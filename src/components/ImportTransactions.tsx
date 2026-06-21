@@ -31,7 +31,7 @@ function isValidTx(tx: ParsedTx): boolean {
   // 4 digits = stocks, 5-6 digits = ETFs (00878) / warrants, optional letter suffix (00878B)
   return (
     /^\d{4,6}[A-Z]?$/.test(tx.stockCode) &&
-    (tx.type === 'buy' || tx.type === 'sell') &&
+    (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'dividend') &&
     /^\d{4}-\d{2}-\d{2}$/.test(tx.date) &&
     tx.shares > 0 &&
     tx.price > 0
@@ -341,12 +341,14 @@ export default function ImportTransactions({ onAddMany }: Props) {
                       </td>
                       <td className="px-1 py-1">
                         <button
-                          onClick={() => updateRow(i, { type: tx.type === 'buy' ? 'sell' : 'buy' })}
+                          onClick={() => updateRow(i, { type: tx.type === 'buy' ? 'sell' : tx.type === 'sell' ? 'dividend' : 'buy' })}
                           className={`px-2 py-1 rounded font-medium ${
-                            tx.type === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            tx.type === 'buy' ? 'bg-green-100 text-green-700'
+                              : tx.type === 'sell' ? 'bg-red-100 text-red-700'
+                              : 'bg-blue-100 text-blue-700'
                           }`}
                         >
-                          {tx.type === 'buy' ? '買' : '賣'}
+                          {tx.type === 'buy' ? '買' : tx.type === 'sell' ? '賣' : '息'}
                         </button>
                       </td>
                       <td className="px-1 py-1">
