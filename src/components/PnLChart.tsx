@@ -68,7 +68,18 @@ export default function PnLChart({ data }: Props) {
   const intraday = isTradingHours()
   const today = todayTW()
 
-  const allChartData = data.map(d => ({
+  const start = rangeStart(range, today)
+  const inRange = (date: string) => {
+    if (range === 'custom') {
+      if (customFrom && date < customFrom) return false
+      if (customTo && date > customTo) return false
+      return true
+    }
+    return !start || date >= start
+  }
+
+  const windowData = data.filter(d => inRange(d.date))
+  const chartData = windowData.map(d => ({
     label: fmtDateShort(d.date),
     fullDate: d.date,
     totalPnL: Math.round(d.totalPnL),
@@ -78,15 +89,18 @@ export default function PnLChart({ data }: Props) {
     dailyChangePercent: d.dailyChangePercent,
   }))
 
-  const start = rangeStart(range, today)
-  const chartData = allChartData.filter(d => {
-    if (range === 'custom') {
-      if (customFrom && d.fullDate < customFrom) return false
-      if (customTo && d.fullDate > customTo) return false
-      return true
-    }
-    return !start || d.fullDate >= start
-  })
+  // 區間損益/報酬率：以區間起點前一日為基準，計算這段期間「賺了多少、漲了幾%」
+  let windowPnL: number | null = null
+  let windowReturn: number | null = null
+  if (windowData.length > 0) {
+    const firstIdx = data.indexOf(windowData[0])
+    const baseIdx = firstIdx - 1
+    const last = windowData[windowData.length - 1]
+    const basePnL = baseIdx >= 0 ? data[baseIdx].totalPnL : 0
+    const baseValue = baseIdx >= 0 ? data[baseIdx].portfolioValue : windowData[0].costBasis
+    windowPnL = last.totalPnL - basePnL
+    windowReturn = baseValue > 0 ? (windowPnL / baseValue) * 100 : null
+  }
 
   const latestTotal = chartData.length > 0 ? chartData[chartData.length - 1].totalPnL : 0
   const cumulColor = latestTotal >= 0 ? UP_COLOR : DOWN_COLOR
@@ -154,6 +168,21 @@ export default function PnLChart({ data }: Props) {
           </span>
         )}
       </div>
+
+      {/* 區間損益與報酬率 */}
+      {windowPnL !== null && (
+        <div className="flex items-baseline gap-3 mb-3">
+          <span className="text-xs text-gray-400">區間損益</span>
+          <span className={`text-xl font-bold tabular-nums ${windowPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {windowPnL >= 0 ? '+' : ''}{Math.round(windowPnL).toLocaleString()} 元
+          </span>
+          {windowReturn !== null && (
+            <span className={`text-sm font-semibold tabular-nums ${windowReturn >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {windowReturn >= 0 ? '+' : ''}{windowReturn.toFixed(2)}%
+            </span>
+          )}
+        </div>
+      )}
 
       {chartData.length === 0 && (
         <div className="py-12 text-center text-gray-300 text-sm">此區間沒有資料</div>
