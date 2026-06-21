@@ -57,11 +57,14 @@ function rangeStart(range: Range, today: string): string | null {
   return d.toISOString().slice(0, 10)
 }
 
+type ReturnMethod = 'simple' | 'twr'
+
 export default function PnLChart({ data }: Props) {
   const [tab, setTab] = useState<Tab>('daily')
   const [range, setRange] = useState<Range>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [returnMethod, setReturnMethod] = useState<ReturnMethod>('simple')
 
   if (data.length === 0) return null
 
@@ -90,18 +93,31 @@ export default function PnLChart({ data }: Props) {
   }))
 
   // 區間損益（元）：以區間起點前一日為基準的累計損益變化
-  // 區間報酬率（%）：區間損益 ÷ 目前投入成本。用「目前成本」當分母而非區間起點市值，
-  // 既能避免「起點部位小、後來加碼」造成百分比爆衝，年初至今/全部也會等於總報酬率
+  // 區間報酬率（%）兩種口徑：
+  //   simple（直覺）＝區間損益 ÷ 目前投入成本，跟帳上數字一致、年初至今=總報酬率
+  //   twr（時間加權）＝每日報酬連乘，排除加減碼影響，適合跟大盤比較
   let windowPnL: number | null = null
-  let windowReturn: number | null = null
+  let simpleReturn: number | null = null
+  let twrReturn: number | null = null
   if (windowData.length > 0) {
     const firstIdx = data.indexOf(windowData[0])
     const baseIdx = firstIdx - 1
     const last = windowData[windowData.length - 1]
     const basePnL = baseIdx >= 0 ? data[baseIdx].totalPnL : 0
     windowPnL = last.totalPnL - basePnL
-    windowReturn = last.costBasis > 0 ? (windowPnL / last.costBasis) * 100 : null
+    simpleReturn = last.costBasis > 0 ? (windowPnL / last.costBasis) * 100 : null
+
+    let factor = 1
+    let hasReturn = false
+    for (const d of windowData) {
+      if (d.dailyChangePercent != null) {
+        factor *= 1 + d.dailyChangePercent / 100
+        hasReturn = true
+      }
+    }
+    twrReturn = hasReturn ? (factor - 1) * 100 : null
   }
+  const windowReturn = returnMethod === 'twr' ? twrReturn : simpleReturn
 
   const latestTotal = chartData.length > 0 ? chartData[chartData.length - 1].totalPnL : 0
   const cumulColor = latestTotal >= 0 ? UP_COLOR : DOWN_COLOR
@@ -172,7 +188,7 @@ export default function PnLChart({ data }: Props) {
 
       {/* 區間損益與報酬率 */}
       {windowPnL !== null && (
-        <div className="flex items-baseline gap-3 mb-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
           <span className="text-xs text-gray-400">區間損益</span>
           <span className={`text-xl font-bold tabular-nums ${windowPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
             {windowPnL >= 0 ? '+' : ''}{Math.round(windowPnL).toLocaleString()} 元
@@ -182,6 +198,23 @@ export default function PnLChart({ data }: Props) {
               {windowReturn >= 0 ? '+' : ''}{windowReturn.toFixed(2)}%
             </span>
           )}
+          {/* 報酬率口徑切換 */}
+          <span className="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs ml-auto self-center">
+            <button
+              onClick={() => setReturnMethod('simple')}
+              className={`px-2 py-0.5 font-medium transition-colors ${returnMethod === 'simple' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              title="區間損益 ÷ 目前投入成本，與帳上數字一致"
+            >
+              直覺
+            </button>
+            <button
+              onClick={() => setReturnMethod('twr')}
+              className={`px-2 py-0.5 font-medium transition-colors ${returnMethod === 'twr' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              title="時間加權報酬率，排除加減碼影響，適合跟大盤比較"
+            >
+              TWR
+            </button>
+          </span>
         </div>
       )}
 
