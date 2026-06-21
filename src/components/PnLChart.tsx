@@ -203,19 +203,26 @@ export default function PnLChart({ data }: Props) {
             <button
               onClick={() => setReturnMethod('simple')}
               className={`px-2 py-0.5 font-medium transition-colors ${returnMethod === 'simple' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-              title="區間損益 ÷ 目前投入成本，與帳上數字一致"
             >
-              直覺
+              賺多少
             </button>
             <button
               onClick={() => setReturnMethod('twr')}
               className={`px-2 py-0.5 font-medium transition-colors ${returnMethod === 'twr' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-              title="時間加權報酬率，排除加減碼影響，適合跟大盤比較"
             >
-              TWR
+              比大盤
             </button>
           </span>
         </div>
+      )}
+
+      {/* 報酬率口徑說明（隨選取變動，永遠可見） */}
+      {windowPnL !== null && windowReturn !== null && (
+        <p className="text-xs text-gray-400 mb-3 -mt-1">
+          {returnMethod === 'simple'
+            ? '「賺多少」＝這段期間的損益 ÷ 你投入的成本，跟帳上實際賺賠一致'
+            : '「比大盤」＝時間加權報酬率，排除你加碼/減碼的時點影響，適合拿去跟 0050、大盤比快慢'}
+        </p>
       )}
 
       {chartData.length === 0 && (
