@@ -19,9 +19,18 @@ import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
+type TabKey = 'assets' | 'holdings' | 'records'
+
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: 'assets', label: '資產', icon: '📊' },
+  { key: 'holdings', label: '庫存', icon: '📦' },
+  { key: 'records', label: '紀錄', icon: '📝' },
+]
+
 export default function App() {
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>('tw-stock-transactions', [])
   const [stockNames, setStockNames] = useLocalStorage<Record<string, string>>('tw-stock-names', {})
+  const [tab, setTab] = useState<TabKey>(() => (transactions.length > 0 ? 'assets' : 'records'))
   const [pricesByStock, setPricesByStock] = useState<Map<string, Map<string, number>>>(new Map())
   const [feeSettings, setFeeSettings] = useState<FeeSettings>(() => loadFeeSettings())
   const [realtimePrices, setRealtimePrices] = useState<Map<string, number>>(new Map())
@@ -233,8 +242,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      {/* Header + Tab bar 一起 sticky，避免寫死偏移量 */}
+      <div className="sticky top-0 z-20">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold text-gray-900">台股損益追蹤器</span>
@@ -257,6 +267,26 @@ export default function App() {
         </div>
       </header>
 
+      {/* Tab bar（手機與電腦共用） */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 flex">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 sm:flex-none sm:px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                tab === t.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="mr-1">{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* Error banner */}
         {error && (
@@ -266,8 +296,17 @@ export default function App() {
           </div>
         )}
 
-        {/* Summary + chart (visible once data exists) */}
-        {hasData && (
+        {/* 共用空狀態 */}
+        {!hasData && tab !== 'records' && (
+          <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
+            <p className="text-4xl mb-3">📈</p>
+            <p className="text-sm font-medium text-gray-600 mb-1">還沒有資料</p>
+            <p className="text-xs">到「📝 紀錄」分頁新增第一筆交易，這裡就會顯示損益分析</p>
+          </div>
+        )}
+
+        {/* 資產 */}
+        {tab === 'assets' && hasData && (
           <>
             <PortfolioSummary summary={summary} loading={loading} />
             <AnnualizedReturn
@@ -278,29 +317,40 @@ export default function App() {
             />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
-            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
-            {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
           </>
         )}
 
-        {/* Empty state */}
-        {!hasData && (
-          <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
-            <p className="text-4xl mb-3">📈</p>
-            <p className="text-sm font-medium text-gray-600 mb-1">開始追蹤你的台股損益</p>
-            <p className="text-xs">在下方新增第一筆買入紀錄，系統將自動從 Yahoo Finance 抓取歷史股價</p>
-          </div>
+        {/* 庫存 */}
+        {tab === 'holdings' && hasData && (
+          <>
+            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
+            {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
+            {holdings.length === 0 && stockDetails.length === 0 && (
+              <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
+                目前沒有持倉資料
+              </div>
+            )}
+          </>
         )}
 
-        {/* Fee settings */}
-        {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
-
-        {/* Input + list */}
-        <ImportTransactions onAddMany={addTransactions} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-          <TransactionForm onAdd={addTransaction} />
-          <TransactionList transactions={transactions} onDelete={deleteTransaction} />
-        </div>
+        {/* 紀錄 */}
+        {tab === 'records' && (
+          <>
+            {!hasData && (
+              <div className="bg-white rounded-xl border border-dashed border-gray-200 py-10 text-center text-gray-400">
+                <p className="text-4xl mb-3">📈</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">開始追蹤你的台股損益</p>
+                <p className="text-xs">新增第一筆買入紀錄，系統會自動抓取歷史股價</p>
+              </div>
+            )}
+            {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
+            <ImportTransactions onAddMany={addTransactions} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+              <TransactionForm onAdd={addTransaction} />
+              <TransactionList transactions={transactions} onDelete={deleteTransaction} />
+            </div>
+          </>
+        )}
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-300">
