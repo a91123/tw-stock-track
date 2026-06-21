@@ -89,7 +89,9 @@ export default function PnLChart({ data }: Props) {
     dailyChangePercent: d.dailyChangePercent,
   }))
 
-  // 區間損益/報酬率：以區間起點前一日為基準，計算這段期間「賺了多少、漲了幾%」
+  // 區間損益（元）：以區間起點前一日為基準的累計損益變化
+  // 區間報酬率（%）：用時間加權報酬率（TWR）連乘每日報酬，與部位大小/加減碼無關，
+  // 避免「起點部位小、後來加碼」造成分母過小、百分比爆衝
   let windowPnL: number | null = null
   let windowReturn: number | null = null
   if (windowData.length > 0) {
@@ -97,9 +99,17 @@ export default function PnLChart({ data }: Props) {
     const baseIdx = firstIdx - 1
     const last = windowData[windowData.length - 1]
     const basePnL = baseIdx >= 0 ? data[baseIdx].totalPnL : 0
-    const baseValue = baseIdx >= 0 ? data[baseIdx].portfolioValue : windowData[0].costBasis
     windowPnL = last.totalPnL - basePnL
-    windowReturn = baseValue > 0 ? (windowPnL / baseValue) * 100 : null
+
+    let factor = 1
+    let hasReturn = false
+    for (const d of windowData) {
+      if (d.dailyChangePercent != null) {
+        factor *= 1 + d.dailyChangePercent / 100
+        hasReturn = true
+      }
+    }
+    windowReturn = hasReturn ? (factor - 1) * 100 : null
   }
 
   const latestTotal = chartData.length > 0 ? chartData[chartData.length - 1].totalPnL : 0
