@@ -1,12 +1,50 @@
+import { useState } from 'react'
 import { HoldingData } from '../utils/pnl'
 
 interface Props {
   holdings: HoldingData[]
   isRealtime?: boolean
+  names: Record<string, string>
+  onRename: (code: string, name: string) => void
 }
 
 function fmtNum(v: number, decimals = 0) {
   return v.toLocaleString('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
+// 點擊即可輸入/編輯股票中文名稱
+function EditableName({ code, name, onRename }: { code: string; name?: string; onRename: (c: string, n: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(name ?? '')
+
+  function save() {
+    onRename(code, val)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+        placeholder="輸入名稱"
+        className="w-20 px-1 py-0.5 text-xs font-normal border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+        onClick={e => e.stopPropagation()}
+      />
+    )
+  }
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); setVal(name ?? ''); setEditing(true) }}
+      className={`text-xs font-normal ${name ? 'text-gray-500' : 'text-blue-400'} hover:text-blue-600`}
+      title="點擊編輯名稱"
+    >
+      {name || '＋命名'}
+    </button>
+  )
 }
 
 function PnLText({ value, suffix = '' }: { value: number | null; suffix?: string }) {
@@ -19,7 +57,7 @@ function PnLText({ value, suffix = '' }: { value: number | null; suffix?: string
   )
 }
 
-export default function Holdings({ holdings, isRealtime }: Props) {
+export default function Holdings({ holdings, isRealtime, names, onRename }: Props) {
   if (holdings.length === 0) return null
 
   return (
@@ -51,7 +89,12 @@ export default function Holdings({ holdings, isRealtime }: Props) {
           <tbody>
             {holdings.map(h => (
               <tr key={h.stockCode} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="py-3 font-bold text-gray-900">{h.stockCode}</td>
+                <td className="py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900">{h.stockCode}</span>
+                    <EditableName code={h.stockCode} name={names[h.stockCode]} onRename={onRename} />
+                  </div>
+                </td>
                 <td className="py-3 text-right tabular-nums">{h.totalShares.toLocaleString()}</td>
                 <td className="py-3 text-right text-gray-600 tabular-nums">{fmtNum(h.avgCost, 2)}</td>
                 <td className="py-3 text-right text-gray-600 tabular-nums">
@@ -80,7 +123,10 @@ export default function Holdings({ holdings, isRealtime }: Props) {
         {holdings.map(h => (
           <div key={h.stockCode} className="rounded-lg border border-gray-100 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-base text-gray-900">{h.stockCode}</span>
+              <span className="flex items-center gap-2">
+                <span className="font-bold text-base text-gray-900">{h.stockCode}</span>
+                <EditableName code={h.stockCode} name={names[h.stockCode]} onRename={onRename} />
+              </span>
               <PnLText
                 value={h.returnRate !== null ? Math.round(h.returnRate * 100) / 100 : null}
                 suffix="%"

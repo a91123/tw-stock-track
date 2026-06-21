@@ -21,6 +21,7 @@ import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 export default function App() {
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>('tw-stock-transactions', [])
+  const [stockNames, setStockNames] = useLocalStorage<Record<string, string>>('tw-stock-names', {})
   const [pricesByStock, setPricesByStock] = useState<Map<string, Map<string, number>>>(new Map())
   const [feeSettings, setFeeSettings] = useState<FeeSettings>(() => loadFeeSettings())
   const [realtimePrices, setRealtimePrices] = useState<Map<string, number>>(new Map())
@@ -195,6 +196,13 @@ export default function App() {
     setTransactions(transactions.filter(t => t.id !== id))
   }
 
+  function setStockName(code: string, name: string) {
+    const next = { ...stockNames }
+    if (name.trim()) next[code] = name.trim()
+    else delete next[code]
+    setStockNames(next)
+  }
+
   const hasData = transactions.length > 0
 
   return (
@@ -244,7 +252,7 @@ export default function App() {
             />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
-            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} />}
+            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
             {stockDetails.length > 0 && <StockDetails details={stockDetails} />}
           </>
         )}
