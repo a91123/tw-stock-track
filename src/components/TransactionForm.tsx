@@ -134,6 +134,12 @@ export default function TransactionForm({ onAdd }: Props) {
           </div>
         </div>
 
+        {type === 'dividend' && (
+          <p className="text-xs text-blue-600 -mt-1">
+            股利：股數×每股股利＝實領金額。只知道總金額的話，股數填 1、每股股利填總金額即可。
+          </p>
+        )}
+
         <div>
           <label className="block text-xs text-gray-500 mb-1">備註（選填）</label>
           <input

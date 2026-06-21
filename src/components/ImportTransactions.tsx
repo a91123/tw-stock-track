@@ -315,6 +315,12 @@ export default function ImportTransactions({ onAddMany }: Props) {
             </div>
           )}
 
+          {parsed.some(t => t.type === 'dividend') && (
+            <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+              股利（息）：價格欄＝「每股股利」，股數×價格＝實領金額。若只知道總配息金額，股數填 <strong>1</strong>、價格填 <strong>總金額</strong> 即可。
+            </div>
+          )}
+
           <div className="overflow-x-auto -mx-1">
             <table className="w-full text-xs">
               <thead>
