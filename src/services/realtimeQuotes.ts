@@ -10,6 +10,7 @@ interface MisItem {
   c?: string  // 股票代碼
   z?: string  // 最新成交價（快照間隔可能是 '-'）
   b?: string  // 五檔最佳買價，'_' 分隔
+  n?: string  // 股票中文簡稱
 }
 
 // z 可能是 '-'（快照間隔沒有成交），備援用最佳買價
@@ -35,4 +36,20 @@ export async function fetchRealtimeQuotes(symbols: StockSymbol[]): Promise<Map<s
     if (item.c && price !== null) quotes.set(item.c, price)
   }
   return quotes
+}
+
+// 批次查詢股票中文簡稱（MIS 回應的 n 欄位），非交易時段也可取得
+export async function fetchStockNames(symbols: StockSymbol[]): Promise<Map<string, string>> {
+  if (symbols.length === 0) return new Map()
+
+  const exCh = symbols.map(s => `${s.market}_${s.code}.tw`).join('|')
+  const res = await fetch(`/api/mis?ex_ch=${encodeURIComponent(exCh)}`)
+  if (!res.ok) throw new Error(`MIS ${res.status}`)
+
+  const json = (await res.json()) as { msgArray?: MisItem[] }
+  const names = new Map<string, string>()
+  for (const item of json.msgArray ?? []) {
+    if (item.c && item.n) names.set(item.c, item.n.trim())
+  }
+  return names
 }

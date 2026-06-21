@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import * as Sentry from '@sentry/react'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
-import { fetchRealtimeQuotes, StockSymbol } from './services/realtimeQuotes'
+import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
 import { isTradingHours } from './utils/market'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails } from './utils/pnl'
 import { buildCashFlows, xirr } from './utils/xirr'
@@ -131,6 +131,32 @@ export default function App() {
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
+  }, [pricesByStock])
+
+  // 自動帶入股票中文名稱：股價就緒後（此時已知上市/上櫃）批次抓 MIS 名稱，
+  // 只填「目前還沒有名稱」的代碼，不覆蓋使用者手動命名。
+  useEffect(() => {
+    if (pricesByStock.size === 0) return
+    const symbols: StockSymbol[] = []
+    pricesByStock.forEach((_, code) => {
+      if (stockNames[code]) return // 已有名稱（手動或先前自動）就跳過
+      const market = getStockMarket(code)
+      if (market) symbols.push({ code, market })
+    })
+    if (symbols.length === 0) return
+    fetchStockNames(symbols)
+      .then(fetched => {
+        if (fetched.size === 0) return
+        const next = { ...stockNames }
+        let changed = false
+        fetched.forEach((name, code) => {
+          if (!next[code] && name) { next[code] = name; changed = true }
+        })
+        if (changed) setStockNames(next)
+      })
+      .catch(() => { /* 抓不到名稱無妨，仍可手動命名 */ })
+    // 只在持股清單（pricesByStock）變動時嘗試，避免依賴 stockNames 造成迴圈
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pricesByStock])
 
   const currentPrices = useMemo(() => {
