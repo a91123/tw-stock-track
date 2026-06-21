@@ -1,8 +1,11 @@
 import { Fragment, useState } from 'react'
 import { StockDetail } from '../types'
+import EditableName from './EditableName'
 
 interface Props {
   details: StockDetail[]
+  names: Record<string, string>
+  onRename: (code: string, name: string) => void
 }
 
 function fmtNum(v: number, decimals = 0) {
@@ -52,7 +55,7 @@ function TxSubList({ d }: { d: StockDetail }) {
   )
 }
 
-export default function StockDetails({ details }: Props) {
+export default function StockDetails({ details, names, onRename }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   if (details.length === 0) return null
@@ -95,6 +98,7 @@ export default function StockDetails({ details }: Props) {
                   <td className="py-3 font-bold text-gray-900">
                     <span className="inline-block w-3 text-gray-300">{expanded.has(d.stockCode) ? '▾' : '▸'}</span>
                     {d.stockCode}
+                    <span className="ml-2"><EditableName code={d.stockCode} name={names[d.stockCode]} onRename={onRename} /></span>
                     {d.totalShares > 0
                       ? <span className="ml-2 text-xs font-normal text-gray-400">持有 {d.totalShares.toLocaleString()} 股</span>
                       : <span className="ml-2 text-xs font-normal text-gray-300">已出清</span>}
@@ -127,6 +131,7 @@ export default function StockDetails({ details }: Props) {
               <span className="flex items-center gap-2">
                 <span className="text-gray-300">{expanded.has(d.stockCode) ? '▾' : '▸'}</span>
                 <span className="font-bold text-base text-gray-900">{d.stockCode}</span>
+                <EditableName code={d.stockCode} name={names[d.stockCode]} onRename={onRename} />
                 <span className="text-xs text-gray-400">{d.totalShares > 0 ? `持有 ${d.totalShares.toLocaleString()}` : '已出清'}</span>
               </span>
               <PnL value={d.totalPnL} />

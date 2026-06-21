@@ -279,7 +279,7 @@ export default function App() {
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
-            {stockDetails.length > 0 && <StockDetails details={stockDetails} />}
+            {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
           </>
         )}
 
