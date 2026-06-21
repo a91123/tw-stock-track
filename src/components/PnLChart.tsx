@@ -38,18 +38,37 @@ interface Props {
 }
 
 type Tab = 'daily' | 'cumulative'
+type Range = 'all' | '1w' | '1m' | 'ytd' | 'custom'
+
+const RANGE_LABELS: { key: Range; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: '1w', label: '近一週' },
+  { key: '1m', label: '近一月' },
+  { key: 'ytd', label: '年初至今' },
+]
+
+// 區間起始日（含），all/無條件回 null
+function rangeStart(range: Range, today: string): string | null {
+  if (range === 'all' || range === 'custom') return null
+  if (range === 'ytd') return `${today.slice(0, 4)}-01-01`
+  const d = new Date(today + 'T00:00:00')
+  if (range === '1w') d.setDate(d.getDate() - 7)
+  else if (range === '1m') d.setMonth(d.getMonth() - 1)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function PnLChart({ data }: Props) {
   const [tab, setTab] = useState<Tab>('daily')
+  const [range, setRange] = useState<Range>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
   if (data.length === 0) return null
 
-  const latestTotal = data[data.length - 1].totalPnL
-  const cumulColor = latestTotal >= 0 ? UP_COLOR : DOWN_COLOR
   const intraday = isTradingHours()
   const today = todayTW()
 
-  const chartData = data.map(d => ({
+  const allChartData = data.map(d => ({
     label: fmtDateShort(d.date),
     fullDate: d.date,
     totalPnL: Math.round(d.totalPnL),
@@ -59,10 +78,23 @@ export default function PnLChart({ data }: Props) {
     dailyChangePercent: d.dailyChangePercent,
   }))
 
+  const start = rangeStart(range, today)
+  const chartData = allChartData.filter(d => {
+    if (range === 'custom') {
+      if (customFrom && d.fullDate < customFrom) return false
+      if (customTo && d.fullDate > customTo) return false
+      return true
+    }
+    return !start || d.fullDate >= start
+  })
+
+  const latestTotal = chartData.length > 0 ? chartData[chartData.length - 1].totalPnL : 0
+  const cumulColor = latestTotal >= 0 ? UP_COLOR : DOWN_COLOR
+
   return (
     <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-700">損益走勢</h2>
+        <h2 className="text-sm font-semibold text-gray-700">走勢分析</h2>
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
           <button
             onClick={() => setTab('daily')}
@@ -83,7 +115,51 @@ export default function PnLChart({ data }: Props) {
         </div>
       </div>
 
-      {tab === 'daily' && (
+      {/* 走勢分析：時間區間 */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {RANGE_LABELS.map(r => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+              range === r.key ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setRange('custom')}
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+            range === 'custom' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          自訂
+        </button>
+        {range === 'custom' && (
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <input
+              type="date"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+              className="px-1.5 py-1 border border-gray-200 rounded-md"
+            />
+            <span>~</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={e => setCustomTo(e.target.value)}
+              className="px-1.5 py-1 border border-gray-200 rounded-md"
+            />
+          </span>
+        )}
+      </div>
+
+      {chartData.length === 0 && (
+        <div className="py-12 text-center text-gray-300 text-sm">此區間沒有資料</div>
+      )}
+
+      {chartData.length > 0 && tab === 'daily' && (
         <>
           <div className="flex items-center gap-2 mb-3">
           <p className="text-xs text-gray-400">每個交易日的損益變化（紅＝當日獲利、綠＝當日虧損）</p>
@@ -125,7 +201,7 @@ export default function PnLChart({ data }: Props) {
         </>
       )}
 
-      {tab === 'cumulative' && (
+      {chartData.length > 0 && tab === 'cumulative' && (
         <>
           <p className="text-xs text-gray-400 mb-3">從第一筆交易起的累計總損益走勢</p>
           <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 300}>

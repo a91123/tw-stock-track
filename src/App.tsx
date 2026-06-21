@@ -153,11 +153,16 @@ export default function App() {
     [transactions, currentPrices, feeSettings],
   )
 
-  // 整體年化報酬率（XIRR）
+  // 整體年化報酬率（XIRR）+ 持有天數（用來判斷年化是否僅供參考）
   const annualized = useMemo(() => {
     const { flows, incompletePrices } = buildCashFlows(transactions, currentPrices, feeSettings)
     const r = xirr(flows)
-    return { value: r === null ? null : r * 100, incompletePrices }
+    let holdingDays = 0
+    if (transactions.length > 0) {
+      const firstDate = transactions.reduce((min, t) => (t.date < min ? t.date : min), transactions[0].date)
+      holdingDays = Math.max(0, Math.round((Date.now() - Date.parse(firstDate)) / 86_400_000))
+    }
+    return { value: r === null ? null : r * 100, incompletePrices, holdingDays }
   }, [transactions, currentPrices, feeSettings])
 
   // 總覽：收盤後以每日損益的最新一筆為準；盤中有即時價時改用持股現值計算
@@ -231,7 +236,12 @@ export default function App() {
         {hasData && (
           <>
             <PortfolioSummary summary={summary} loading={loading} />
-            <AnnualizedReturn value={annualized.value} incompletePrices={annualized.incompletePrices} />
+            <AnnualizedReturn
+              value={annualized.value}
+              periodReturn={summary.returnRate}
+              holdingDays={annualized.holdingDays}
+              incompletePrices={annualized.incompletePrices}
+            />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} />}
