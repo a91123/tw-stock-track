@@ -7,7 +7,7 @@ import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
 import { isTradingHours } from './utils/market'
-import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails } from './utils/pnl'
+import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails, getSharesOnDate } from './utils/pnl'
 import { buildCashFlows, xirr } from './utils/xirr'
 import TransactionForm from './components/TransactionForm'
 import TransactionList from './components/TransactionList'
@@ -19,6 +19,8 @@ import StockDetails from './components/StockDetails'
 import ReturnCalendar from './components/ReturnCalendar'
 import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
+import DividendSuggestions, { SuggestedDividend } from './components/DividendSuggestions'
+import { fetchDividends } from './services/dividends'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 type TabKey = 'assets' | 'holdings' | 'records'
@@ -43,6 +45,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const loadingFromFirestore = useRef(false)
+  const [dividendSuggestions, setDividendSuggestions] = useState<SuggestedDividend[] | null>(null)
+  const [checkingDividends, setCheckingDividends] = useState(false)
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -283,6 +287,40 @@ export default function App() {
     await signOut(auth)
   }
 
+  async function handleCheckDividends() {
+    setCheckingDividends(true)
+    const codes = [...new Set(transactions.map(t => t.stockCode))]
+    const recordedKeys = new Set(
+      transactions.filter(t => t.type === 'dividend').map(t => `${t.stockCode}:${t.date}`),
+    )
+    const suggestions: SuggestedDividend[] = []
+
+    await Promise.allSettled(
+      codes.map(async code => {
+        const market = getStockMarket(code)
+        if (!market) return
+        const records = await fetchDividends(code, market)
+        for (const d of records) {
+          if (recordedKeys.has(`${d.stockCode}:${d.exDate}`)) continue
+          const sharesHeld = getSharesOnDate(transactions, code, d.exDate)
+          if (sharesHeld <= 0) continue
+          suggestions.push({
+            stockCode: code,
+            stockName: stockNames[code],
+            exDate: d.exDate,
+            cashPerShare: d.cashPerShare,
+            sharesHeld,
+            totalAmount: sharesHeld * d.cashPerShare,
+          })
+        }
+      }),
+    )
+
+    suggestions.sort((a, b) => b.exDate.localeCompare(a.exDate))
+    setDividendSuggestions(suggestions)
+    setCheckingDividends(false)
+  }
+
   // 檢查 auth 狀態中
   if (authLoading) {
     return (
@@ -408,6 +446,25 @@ export default function App() {
 
         {tab === 'holdings' && hasData && (
           <>
+            {dividendSuggestions === null ? (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleCheckDividends}
+                  disabled={checkingDividends || pricesByStock.size === 0}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {checkingDividends ? '查詢中…' : '查詢未入帳配息'}
+                </button>
+              </div>
+            ) : dividendSuggestions.length > 0 ? (
+              <DividendSuggestions
+                suggestions={dividendSuggestions}
+                onAdd={txs => { addTransactions(txs); setDividendSuggestions(null) }}
+                onDismiss={() => setDividendSuggestions(null)}
+              />
+            ) : (
+              <div className="text-xs text-gray-400 text-right">✓ 配息紀錄都已入帳</div>
+            )}
             {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
             {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
             {holdings.length === 0 && stockDetails.length === 0 && (

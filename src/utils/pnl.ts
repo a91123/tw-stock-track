@@ -1,4 +1,14 @@
 import { Transaction, DailyPortfolioData, PortfolioSummaryData, StockDetail } from '../types'
+
+export function getSharesOnDate(transactions: Transaction[], stockCode: string, date: string): number {
+  let shares = 0
+  for (const tx of transactions) {
+    if (tx.stockCode !== stockCode || tx.date > date) continue
+    if (tx.type === 'buy') shares += tx.shares
+    else if (tx.type === 'sell') shares -= tx.shares
+  }
+  return Math.max(0, Math.round(shares))
+}
 import { FeeSettings, tradeFee, sellTax } from './fees'
 import { annualizedReturn } from './xirr'
 
