@@ -1,5 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import * as Sentry from '@sentry/react'
+import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import { auth, googleProvider } from './services/firebase'
+import { loadUserData, saveUserData } from './services/firestore'
+import AuthButton from './components/AuthButton'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
@@ -37,6 +41,13 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const loadingFromFirestore = useRef(false)
+  const transactionsRef = useRef(transactions)
+  transactionsRef.current = transactions
+  const stockNamesRef = useRef(stockNames)
+  stockNamesRef.current = stockNames
 
   // Stable primitive key — changes only when stock list or any per-stock earliest date changes.
   // 每檔股票記錄「自己的」第一筆交易日 — 用整體最早日期會讓晚掛牌的股票
@@ -60,6 +71,45 @@ export default function App() {
       return { code, minDate }
     })
   }
+
+  // Firebase auth + Firestore sync
+  useEffect(() => {
+    return onAuthStateChanged(auth, async (u) => {
+      setUser(u)
+      if (!u) return
+      setSyncing(true)
+      loadingFromFirestore.current = true
+      try {
+        const data = await loadUserData(u.uid)
+        if (data && data.transactions.length > 0) {
+          // 合併：Firestore 的交易為主，本地有但雲端沒有的補上
+          const ids = new Set(data.transactions.map(t => t.id))
+          const localOnly = transactionsRef.current.filter(t => !ids.has(t.id))
+          setTransactions([...data.transactions, ...localOnly])
+          setStockNames({ ...stockNamesRef.current, ...data.stockNames })
+        } else {
+          // 第一次登入：把本地資料上傳
+          await saveUserData(u.uid, {
+            transactions: transactionsRef.current,
+            stockNames: stockNamesRef.current,
+          })
+        }
+      } catch (err) {
+        Sentry.captureException(err, { tags: { feature: 'firestore-sync' } })
+      } finally {
+        loadingFromFirestore.current = false
+        setSyncing(false)
+      }
+    })
+  }, [])
+
+  // 資料變動時同步到 Firestore
+  useEffect(() => {
+    if (!user || loadingFromFirestore.current) return
+    void saveUserData(user.uid, { transactions, stockNames }).catch(err => {
+      Sentry.captureException(err, { tags: { feature: 'firestore-save' } })
+    })
+  }, [transactions, stockNames, user])
 
   useEffect(() => {
     if (!fetchKey) {
@@ -231,6 +281,18 @@ export default function App() {
     setTransactions(transactions.filter(t => t.id !== id))
   }
 
+  async function handleLogin() {
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      Sentry.captureException(err, { tags: { feature: 'google-login' } })
+    }
+  }
+
+  async function handleLogout() {
+    await signOut(auth)
+  }
+
   function setStockName(code: string, name: string) {
     const next = { ...stockNames }
     if (name.trim()) next[code] = name.trim()
@@ -263,6 +325,7 @@ export default function App() {
             >
               {loading ? '更新中…' : '更新股價'}
             </button>
+            <AuthButton user={user} syncing={syncing} onLogin={handleLogin} onLogout={handleLogout} />
           </div>
         </div>
       </header>
