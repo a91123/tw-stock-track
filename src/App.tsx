@@ -111,16 +111,18 @@ export default function App() {
 
       setNewsLoading(true)
       const items: Record<string, NewsItem[]> = {}
-      const results = await Promise.allSettled(
-        heldCodes.slice(0, 5).map(async code => {
+      let firstErrorMsg: string | null = null
+      // 循序發送，避免同時打 N 個 API 觸發速率限制
+      for (const code of heldCodes.slice(0, 5)) {
+        try {
           const news = await fetchHoldingsNews(apiKey, code, stockNames[code])
           if (news.length > 0) items[code] = news
-        }),
-      )
-      const firstError = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined
-      if (firstError) {
-        setError(firstError.reason instanceof Error ? firstError.reason.message : '新聞抓取失敗')
+        } catch (err) {
+          if (!firstErrorMsg) firstErrorMsg = err instanceof Error ? err.message : '新聞抓取失敗'
+          break  // 遇到 429/403 就停，不繼續消耗配額
+        }
       }
+      if (firstErrorMsg) setError(firstErrorMsg)
       const fetchedAt = Date.now()
       setAutoNews(items)
       setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
