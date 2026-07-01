@@ -5,6 +5,9 @@ export interface NewsItem {
   summary: string
   source: string
   date: string
+  url?: string
+  sentiment?: '利多' | '利空' | '中性'
+  impact?: string
 }
 
 export interface ParsedTx {
@@ -67,12 +70,16 @@ export interface ScreenshotImage {
   mimeType: string
 }
 
-const JSON_FORMAT = `只回傳 JSON 陣列，不要其他文字：[{"title":"...","summary":"...","source":"媒體名稱","date":"YYYY-MM-DD"}]`
+const JSON_FORMAT =
+  `只回傳 JSON 陣列，不要其他文字，每則格式：` +
+  `{"title":"繁中標題","summary":"繁中摘要（2-3句）","source":"媒體名稱","date":"YYYY-MM-DD",` +
+  `"url":"原文連結（盡可能提供，無則空字串）","sentiment":"利多或利空或中性",` +
+  `"impact":"此消息對股價的具體潛在影響（1-2句，繁體中文）"}`
 
 function buildSearchPrompt(label: string): string {
   return (
     `搜尋「${label}」最近 7 天的財經新聞（包含中英文來源），列出最多 5 則最重要的，` +
-    `所有內容用繁體中文回答。${JSON_FORMAT}`
+    `所有內容用繁體中文回答，並評估每則新聞對股價的潛在影響方向與原因。${JSON_FORMAT}`
   )
 }
 
@@ -81,7 +88,8 @@ function buildHoldingsPrompt(label: string): string {
     `我持有 ${label} 股票。搜尋最近 7 天對這檔股票最重要的消息（包含中英文來源），` +
     `重點關注：法說會／財報、分析師評等調整、重大訂單／合約、產業供需變化、影響股價的政策或總經消息。` +
     `所有內容用繁體中文，最多 5 則，依重要性排序。` +
-    `summary 說明對股價的潛在影響。${JSON_FORMAT}`
+    `impact 欄位請具體分析：消息量級（重大／一般）、短中期股價影響方向，以及是否與法人動向或籌碼面有關聯。` +
+    `${JSON_FORMAT}`
   )
 }
 

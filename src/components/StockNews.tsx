@@ -10,14 +10,43 @@ interface Props {
   onSearch: (query: string) => Promise<NewsItem[]>
 }
 
+const SENTIMENT_STYLE: Record<string, string> = {
+  利多: 'bg-green-100 text-green-700',
+  利空: 'bg-red-100 text-red-700',
+  中性: 'bg-gray-100 text-gray-500',
+}
+
 function NewsCard({ item }: { item: NewsItem }) {
+  const fallbackUrl = `https://news.google.com/search?q=${encodeURIComponent(item.title + ' ' + item.source)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+  const href = item.url || fallbackUrl
+
   return (
-    <div className="py-2.5 border-b border-gray-100 last:border-0">
-      <p className="text-sm font-medium text-gray-900 leading-snug">{item.title}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{item.summary}</p>
-      <p className="text-xs text-gray-400 mt-1">
-        {item.source}・{item.date}
-      </p>
+    <div className="py-3 border-b border-gray-100 last:border-0">
+      <div className="flex items-start gap-2">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 text-sm font-medium text-gray-900 leading-snug hover:text-blue-600 transition-colors"
+        >
+          {item.title}
+          <span className="ml-1 text-gray-400 text-xs">↗</span>
+        </a>
+        {item.sentiment && (
+          <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium mt-0.5 ${SENTIMENT_STYLE[item.sentiment] ?? 'bg-gray-100 text-gray-500'}`}>
+            {item.sentiment}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.summary}</p>
+      {item.impact && (
+        <div className="mt-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700 leading-relaxed">
+            <span className="font-medium">潛在影響：</span>{item.impact}
+          </p>
+        </div>
+      )}
+      <p className="text-xs text-gray-400 mt-1.5">{item.source}・{item.date}</p>
     </div>
   )
 }
