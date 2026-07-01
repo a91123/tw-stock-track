@@ -8,6 +8,7 @@ export interface NewsItem {
   url?: string
   sentiment?: '利多' | '利空' | '中性'
   impact?: string
+  stockCode?: string
 }
 
 export interface ParsedTx {
@@ -164,6 +165,36 @@ export async function fetchHoldingsNews(
 ): Promise<NewsItem[]> {
   const label = stockName ? `${stockName}(${stockCode})` : stockCode
   return callGeminiSearch(apiKey, buildHoldingsPrompt(label))
+}
+
+export async function fetchAllHoldingsNews(
+  apiKey: string,
+  holdings: { code: string; name?: string }[],
+): Promise<Record<string, NewsItem[]>> {
+  if (holdings.length === 0) return {}
+
+  const labels = holdings.map(h => h.name ? `${h.name}(${h.code})` : h.code).join('、')
+  const prompt =
+    `我持有以下台股：${labels}。` +
+    `搜尋每檔最近 7 天最重要的消息（包含中英文來源），每檔最多 3 則，` +
+    `重點關注：法說會／財報、分析師評等調整、重大訂單、產業供需、影響股價的政策。` +
+    `所有內容用繁體中文，依重要性排序。` +
+    `impact 說明消息量級與對股價短中期的潛在影響。` +
+    `每則必須包含 stockCode 欄位（填股票代碼，例如 2330）。` +
+    `只回傳 JSON 陣列，不要其他文字，格式：` +
+    `{"stockCode":"代碼","title":"繁中標題","summary":"摘要","source":"媒體名稱","date":"YYYY-MM-DD",` +
+    `"url":"原文連結","sentiment":"利多或利空或中性","impact":"潛在影響分析"}`
+
+  const items = await callGeminiSearch(apiKey, prompt)
+
+  const result: Record<string, NewsItem[]> = {}
+  for (const item of items) {
+    const code = item.stockCode
+    if (!code) continue
+    if (!result[code]) result[code] = []
+    result[code].push(item)
+  }
+  return result
 }
 
 export async function parseScreenshots(

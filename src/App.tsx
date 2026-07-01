@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react'
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from './services/firebase'
 import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache } from './services/firestore'
-import { fetchStockNews, fetchHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
+import { fetchStockNews, fetchAllHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
@@ -111,18 +111,16 @@ export default function App() {
 
       setNewsLoading(true)
       const items: Record<string, NewsItem[]> = {}
-      let firstErrorMsg: string | null = null
-      // 循序發送，避免同時打 N 個 API 觸發速率限制
-      for (const code of heldCodes.slice(0, 5)) {
-        try {
-          const news = await fetchHoldingsNews(apiKey, code, stockNames[code])
-          if (news.length > 0) items[code] = news
-        } catch (err) {
-          if (!firstErrorMsg) firstErrorMsg = err instanceof Error ? err.message : '新聞抓取失敗'
-          break  // 遇到 429/403 就停，不繼續消耗配額
-        }
+      try {
+        // 所有持股合成一個 prompt，只用 1 次 API call
+        const newsMap = await fetchAllHoldingsNews(
+          apiKey,
+          heldCodes.slice(0, 8).map(code => ({ code, name: stockNames[code] })),
+        )
+        Object.assign(items, newsMap)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '新聞抓取失敗')
       }
-      if (firstErrorMsg) setError(firstErrorMsg)
       const fetchedAt = Date.now()
       setAutoNews(items)
       setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
