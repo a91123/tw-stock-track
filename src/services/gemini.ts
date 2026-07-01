@@ -122,23 +122,27 @@ function extractNewsArray(text: string): NewsItem[] {
 }
 
 async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsItem[]> {
-  const res = await fetch(GEMINI_NEWS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      tools: [{ google_search: {} }],
-    }),
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    tools: [{ google_search: {} }],
   })
+  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
 
-  if (!res.ok) {
-    if (res.status === 400 || res.status === 403) throw new Error('API Key 無效，請至 ⚙️ 設定重新輸入')
-    if (res.status === 429) throw new Error('Gemini 速率限制（每分鐘請求太多次），請等 1 分鐘後再試')
-    throw new Error(`Gemini API 錯誤 (${res.status})`)
+  let res: Response
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(GEMINI_NEWS_URL, { method: 'POST', headers, body })
+    if (res.status !== 503 && res.status !== 500) break
+    await sleep(attempt === 0 ? 2000 : 5000)
   }
 
-  const data = await res.json()
-  // With grounding, text can appear in any part — join all text parts
+  if (!res!.ok) {
+    if (res!.status === 400 || res!.status === 403) throw new Error('API Key 無效，請至 ⚙️ 設定重新輸入')
+    if (res!.status === 429) throw new Error('Gemini 速率限制，請稍後再試')
+    if (res!.status === 503 || res!.status === 500) throw new Error('Gemini 伺服器暫時過載，請稍後再試')
+    throw new Error(`Gemini API 錯誤 (${res!.status})`)
+  }
+
+  const data = await res!.json()
   const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? []
   const text = parts.map((p) => p.text ?? '').join('')
   return extractNewsArray(text)
