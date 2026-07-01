@@ -83,14 +83,13 @@ export default function App() {
     })
   }, [])
 
-  // 每日自動抓取持股新聞（登入後 + 今日尚未抓過）
+  // 切到新聞 tab 時抓取持股新聞，30 分鐘內不重複
+  const NEWS_TTL = 30 * 60 * 1000
   useEffect(() => {
-    if (!user || loadingFromFirestore.current) return
-    const today = new Date().toISOString().slice(0, 10)
+    if (tab !== 'news' || !user || newsLoading) return
     const apiKey = loadGeminiKey()
     if (!apiKey) return
 
-    // 計算目前有持股的代碼（不需要 pricesByStock，純從交易推算）
     const sharesMap: Record<string, number> = {}
     for (const t of transactions) {
       if (t.type === 'buy') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) + t.shares
@@ -100,11 +99,10 @@ export default function App() {
     if (heldCodes.length === 0) return
 
     void (async () => {
-      // 先讀快取，今天已抓過就不重打
       const cache = await loadNewsCache(user.uid).catch(() => null)
-      if (cache?.date === today) {
+      if (cache && Date.now() - cache.fetchedAt < NEWS_TTL) {
         setAutoNews(cache.items)
-        setNewsDate(cache.date)
+        setNewsDate(new Date(cache.fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
         return
       }
 
@@ -116,14 +114,14 @@ export default function App() {
           if (news.length > 0) items[code] = news
         }),
       )
-      const newCache: NewsCache = { date: today, items }
+      const fetchedAt = Date.now()
       setAutoNews(items)
-      setNewsDate(today)
+      setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
       setNewsLoading(false)
-      await saveNewsCache(user.uid, newCache).catch(() => {})
+      await saveNewsCache(user.uid, { fetchedAt, items }).catch(() => {})
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, transactions])
+  }, [tab, user])
 
   // 資料變動時同步到 Firestore
   useEffect(() => {

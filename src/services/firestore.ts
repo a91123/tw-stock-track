@@ -9,7 +9,7 @@ interface UserData {
 }
 
 export interface NewsCache {
-  date: string                         // YYYY-MM-DD，抓取當天
+  fetchedAt: number                    // Unix timestamp ms
   items: Record<string, NewsItem[]>    // stockCode → 新聞列表
 }
 

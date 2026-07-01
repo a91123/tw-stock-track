@@ -89,7 +89,7 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
       ) : stockEntries.length > 0 ? (
         <>
           {newsDate && (
-            <p className="text-xs text-gray-400 text-right">持股新聞更新：{newsDate}</p>
+            <p className="text-xs text-gray-400 text-right">更新於 {newsDate}・30 分鐘後自動重整</p>
           )}
           {stockEntries.map(([code, items]) => (
             <div key={code} className="bg-white rounded-xl border border-gray-200 p-4">
