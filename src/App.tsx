@@ -110,7 +110,7 @@ export default function App() {
     try {
       const newsMap = await fetchAllHoldingsNews(
         apiKey,
-        heldCodes.slice(0, 8).map(code => ({ code, name: stockNames[code] })),
+        heldCodes.map(code => ({ code, name: stockNames[code] })),
       )
       Object.assign(items, newsMap)
     } catch (err) {
