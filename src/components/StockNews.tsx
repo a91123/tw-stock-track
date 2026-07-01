@@ -3,11 +3,12 @@ import { NewsItem } from '../services/gemini'
 
 interface Props {
   apiKey: string
-  autoNews: Record<string, NewsItem[]>   // stockCode → 持股新聞（每日自動）
+  autoNews: Record<string, NewsItem[]>
   stockNames: Record<string, string>
-  newsDate: string | null                // 自動新聞抓取日期
+  newsDate: string | null
   newsLoading: boolean
   onSearch: (query: string) => Promise<NewsItem[]>
+  onSearchingChange?: (v: boolean) => void
 }
 
 const SENTIMENT_STYLE: Record<string, string> = {
@@ -18,7 +19,9 @@ const SENTIMENT_STYLE: Record<string, string> = {
 
 function NewsCard({ item }: { item: NewsItem }) {
   const fallbackUrl = `https://news.google.com/search?q=${encodeURIComponent(item.title + ' ' + item.source)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
-  const href = item.url || fallbackUrl
+  // Gemini grounding 有時回傳 Vertex AI 內部 redirect URL，外部無法存取
+  const isUsableUrl = item.url && !item.url.includes('vertexaisearch') && !item.url.includes('grounding-api-redirect')
+  const href = isUsableUrl ? item.url! : fallbackUrl
 
   return (
     <div className="py-3 border-b border-gray-100 last:border-0">
@@ -51,7 +54,7 @@ function NewsCard({ item }: { item: NewsItem }) {
   )
 }
 
-export default function StockNews({ apiKey, autoNews, stockNames, newsDate, newsLoading, onSearch }: Props) {
+export default function StockNews({ apiKey, autoNews, stockNames, newsDate, newsLoading, onSearch, onSearchingChange }: Props) {
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null)
@@ -61,6 +64,7 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
   async function handleSearch() {
     if (!query.trim()) return
     setSearching(true)
+    onSearchingChange?.(true)
     setSearchResults(null)
     setSearchError(null)
     try {
@@ -71,6 +75,7 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
       setSearchError(err instanceof Error ? err.message : '搜尋失敗，請再試一次')
     } finally {
       setSearching(false)
+      onSearchingChange?.(false)
     }
   }
 

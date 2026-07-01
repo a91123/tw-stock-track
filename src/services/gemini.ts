@@ -32,6 +32,10 @@ export function saveGeminiKey(key: string): void {
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
+// 新聞搜尋用 2.0-flash：不需要 thinking，速度快 3-5x
+const GEMINI_NEWS_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+
 const PROMPT = `你是台股交易紀錄解析器。請從這些券商 App 的截圖中，擷取所有「成交」的交易紀錄。
 
 規則：
@@ -118,7 +122,7 @@ function extractNewsArray(text: string): NewsItem[] {
 }
 
 async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsItem[]> {
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(GEMINI_NEWS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
@@ -129,7 +133,7 @@ async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsIte
 
   if (!res.ok) {
     if (res.status === 400 || res.status === 403) throw new Error('API Key 無效，請至 ⚙️ 設定重新輸入')
-    if (res.status === 429) throw new Error('Gemini 免費額度已用完，請稍後再試')
+    if (res.status === 429) throw new Error('Gemini 速率限制（每分鐘請求太多次），請等 1 分鐘後再試')
     throw new Error(`Gemini API 錯誤 (${res.status})`)
   }
 

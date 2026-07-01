@@ -55,6 +55,7 @@ export default function App() {
   const [newsDate, setNewsDate] = useState<string | null>(null)
   const [newsLoading, setNewsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [newsSearchLoading, setNewsSearchLoading] = useState(false)
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -426,6 +427,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-3">
               {syncing && <span className="text-xs text-blue-500">同步中…</span>}
+              {newsSearchLoading && <span className="text-xs text-purple-500">新聞搜尋中…</span>}
               {lastUpdated && !syncing && (
                 <span className="text-xs text-gray-400 hidden sm:inline">
                   更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
@@ -557,8 +559,8 @@ export default function App() {
             </div>
           </>
         )}
-        {/* 新聞 */}
-        {tab === 'news' && (
+        {/* 新聞：保持 mounted 避免切 tab 中斷搜尋 */}
+        <div className={tab !== 'news' ? 'hidden' : ''}>
           <StockNews
             apiKey={loadGeminiKey()}
             autoNews={autoNews}
@@ -566,8 +568,9 @@ export default function App() {
             newsDate={newsDate}
             newsLoading={newsLoading}
             onSearch={handleNewsSearch}
+            onSearchingChange={setNewsSearchLoading}
           />
-        )}
+        </div>
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-300">
