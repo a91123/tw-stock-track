@@ -110,12 +110,16 @@ export default function App() {
 
       setNewsLoading(true)
       const items: Record<string, NewsItem[]> = {}
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         heldCodes.slice(0, 5).map(async code => {
           const news = await fetchHoldingsNews(apiKey, code, stockNames[code])
           if (news.length > 0) items[code] = news
         }),
       )
+      const firstError = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined
+      if (firstError) {
+        setError(firstError.reason instanceof Error ? firstError.reason.message : '新聞抓取失敗')
+      }
       const fetchedAt = Date.now()
       setAutoNews(items)
       setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
@@ -337,7 +341,7 @@ export default function App() {
 
   async function handleNewsSearch(query: string): Promise<NewsItem[]> {
     const apiKey = loadGeminiKey()
-    if (!apiKey) return []
+    if (!apiKey) throw new Error('尚未設定 API Key，請點右上角 ⚙️')
     return fetchStockNews(apiKey, query, stockNames[query])
   }
 

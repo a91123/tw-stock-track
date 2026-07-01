@@ -27,15 +27,22 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null)
   const [searchedQuery, setSearchedQuery] = useState('')
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   async function handleSearch() {
     if (!query.trim()) return
     setSearching(true)
     setSearchResults(null)
-    const results = await onSearch(query.trim())
-    setSearchResults(results)
-    setSearchedQuery(query.trim())
-    setSearching(false)
+    setSearchError(null)
+    try {
+      const results = await onSearch(query.trim())
+      setSearchResults(results)
+      setSearchedQuery(query.trim())
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : '搜尋失敗，請再試一次')
+    } finally {
+      setSearching(false)
+    }
   }
 
   const stockEntries = Object.entries(autoNews).filter(([, items]) => items.length > 0)
@@ -66,6 +73,12 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
           <p className="text-xs text-amber-600 mt-1.5">請先點右上角 ⚙️ 設定 Gemini API Key</p>
         )}
       </div>
+
+      {searchError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          ⚠ {searchError}
+        </div>
+      )}
 
       {/* 搜尋結果 */}
       {searchResults !== null && (

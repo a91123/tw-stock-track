@@ -85,6 +85,30 @@ function buildHoldingsPrompt(label: string): string {
   )
 }
 
+function extractNewsArray(text: string): NewsItem[] {
+  // Try markdown code block first — model sometimes wraps JSON in ```json ... ```
+  const codeBlock = text.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+  if (codeBlock) {
+    try { return JSON.parse(codeBlock[1]) as NewsItem[] } catch {}
+  }
+
+  // Find [{ and count brackets to locate the matching ] — avoids matching citation refs like [1][2]
+  const start = text.indexOf('[{')
+  if (start !== -1) {
+    let depth = 0
+    for (let i = start; i < text.length; i++) {
+      if (text[i] === '[') depth++
+      else if (text[i] === ']') {
+        depth--
+        if (depth === 0) {
+          try { return JSON.parse(text.slice(start, i + 1)) as NewsItem[] } catch { break }
+        }
+      }
+    }
+  }
+  return []
+}
+
 async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsItem[]> {
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
@@ -94,16 +118,18 @@ async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsIte
       tools: [{ google_search: {} }],
     }),
   })
-  if (!res.ok) return []
-  const data = await res.json()
-  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  const match = text.match(/\[[\s\S]*\]/)
-  if (!match) return []
-  try {
-    return JSON.parse(match[0]) as NewsItem[]
-  } catch {
-    return []
+
+  if (!res.ok) {
+    if (res.status === 400 || res.status === 403) throw new Error('API Key 無效，請至 ⚙️ 設定重新輸入')
+    if (res.status === 429) throw new Error('Gemini 免費額度已用完，請稍後再試')
+    throw new Error(`Gemini API 錯誤 (${res.status})`)
   }
+
+  const data = await res.json()
+  // With grounding, text can appear in any part — join all text parts
+  const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? []
+  const text = parts.map((p) => p.text ?? '').join('')
+  return extractNewsArray(text)
 }
 
 export async function fetchStockNews(
