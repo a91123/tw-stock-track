@@ -9,6 +9,7 @@ interface Props {
   newsLoading: boolean
   onSearch: (query: string) => Promise<NewsItem[]>
   onSearchingChange?: (v: boolean) => void
+  onRefresh?: () => void
 }
 
 const SENTIMENT_STYLE: Record<string, string> = {
@@ -54,7 +55,7 @@ function NewsCard({ item }: { item: NewsItem }) {
   )
 }
 
-export default function StockNews({ apiKey, autoNews, stockNames, newsDate, newsLoading, onSearch, onSearchingChange }: Props) {
+export default function StockNews({ apiKey, autoNews, stockNames, newsDate, newsLoading, onSearch, onSearchingChange, onRefresh }: Props) {
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null)
@@ -135,9 +136,18 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
         </div>
       ) : stockEntries.length > 0 ? (
         <>
-          {newsDate && (
-            <p className="text-xs text-gray-400 text-right">更新於 {newsDate}・30 分鐘後自動重整</p>
-          )}
+          <div className="flex items-center justify-between">
+            {newsDate && (
+              <p className="text-xs text-gray-400">更新於 {newsDate}・每日早上 8 點自動重整</p>
+            )}
+            <button
+              onClick={onRefresh}
+              disabled={newsLoading}
+              className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 transition-colors ml-auto"
+            >
+              {newsLoading ? '更新中…' : '重新整理'}
+            </button>
+          </div>
           {stockEntries.map(([code, items]) => (
             <div key={code} className="bg-white rounded-xl border border-gray-200 p-4">
               <p className="text-sm font-semibold text-gray-900 mb-2">

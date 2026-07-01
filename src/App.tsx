@@ -86,49 +86,66 @@ export default function App() {
     })
   }, [])
 
-  // 切到新聞 tab 時抓取持股新聞，30 分鐘內不重複
-  const NEWS_TTL = 30 * 60 * 1000
-  useEffect(() => {
-    if (tab !== 'news' || !user || newsLoading) return
-    const apiKey = loadGeminiKey()
-    if (!apiKey) return
+  // 台灣時間 8am = UTC 00:00，每個 UTC 日只自動抓一次
+  function isCacheTodayUTC(fetchedAt: number): boolean {
+    const cacheDay = new Date(fetchedAt).toISOString().slice(0, 10)
+    const today = new Date().toISOString().slice(0, 10)
+    return cacheDay === today
+  }
 
+  function getHeldCodes(): string[] {
     const sharesMap: Record<string, number> = {}
     for (const t of transactions) {
       if (t.type === 'buy') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) + t.shares
       else if (t.type === 'sell') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) - t.shares
     }
-    const heldCodes = Object.entries(sharesMap).filter(([, s]) => s > 0).map(([c]) => c)
-    if (heldCodes.length === 0) return
+    return Object.entries(sharesMap).filter(([, s]) => s > 0).map(([c]) => c)
+  }
+
+  async function doFetchHoldingsNews(apiKey: string) {
+    const heldCodes = getHeldCodes()
+    if (heldCodes.length === 0 || !user) return
+    setNewsLoading(true)
+    const items: Record<string, NewsItem[]> = {}
+    try {
+      const newsMap = await fetchAllHoldingsNews(
+        apiKey,
+        heldCodes.slice(0, 8).map(code => ({ code, name: stockNames[code] })),
+      )
+      Object.assign(items, newsMap)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '新聞抓取失敗')
+    }
+    const fetchedAt = Date.now()
+    setAutoNews(items)
+    setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
+    setNewsLoading(false)
+    await saveNewsCache(user.uid, { fetchedAt, items }).catch(() => {})
+  }
+
+  // 切到新聞 tab 時，當天首次自動抓取（台灣 8am = UTC 0am 重置）
+  useEffect(() => {
+    if (tab !== 'news' || !user || newsLoading) return
+    const apiKey = loadGeminiKey()
+    if (!apiKey) return
 
     void (async () => {
       const cache = await loadNewsCache(user.uid).catch(() => null)
-      if (cache && Date.now() - cache.fetchedAt < NEWS_TTL) {
+      if (cache && isCacheTodayUTC(cache.fetchedAt)) {
         setAutoNews(cache.items)
         setNewsDate(new Date(cache.fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
         return
       }
-
-      setNewsLoading(true)
-      const items: Record<string, NewsItem[]> = {}
-      try {
-        // 所有持股合成一個 prompt，只用 1 次 API call
-        const newsMap = await fetchAllHoldingsNews(
-          apiKey,
-          heldCodes.slice(0, 8).map(code => ({ code, name: stockNames[code] })),
-        )
-        Object.assign(items, newsMap)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '新聞抓取失敗')
-      }
-      const fetchedAt = Date.now()
-      setAutoNews(items)
-      setNewsDate(new Date(fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
-      setNewsLoading(false)
-      await saveNewsCache(user.uid, { fetchedAt, items }).catch(() => {})
+      await doFetchHoldingsNews(apiKey)
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, user])
+
+  async function handleRefreshNews() {
+    const apiKey = loadGeminiKey()
+    if (!apiKey || !user || newsLoading) return
+    await doFetchHoldingsNews(apiKey)
+  }
 
   // 資料變動時同步到 Firestore
   useEffect(() => {
@@ -569,6 +586,7 @@ export default function App() {
             newsLoading={newsLoading}
             onSearch={handleNewsSearch}
             onSearchingChange={setNewsSearchLoading}
+            onRefresh={handleRefreshNews}
           />
         </div>
       </main>
