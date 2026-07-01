@@ -37,6 +37,10 @@ const GEMINI_URL =
 const GEMINI_NEWS_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
 
+// 持倉分析用 3.1-flash-lite：500 RPD，不需要即時搜尋
+const GEMINI_ANALYSIS_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent'
+
 const PROMPT = `你是台股交易紀錄解析器。請從這些券商 App 的截圖中，擷取所有「成交」的交易紀錄。
 
 規則：
@@ -253,4 +257,79 @@ export async function parseScreenshots(
   if (!text) throw new Error('Gemini 未回傳辨識結果')
 
   return JSON.parse(text) as ParsedTx[]
+}
+
+// ── 持倉分析 ──────────────────────────────────────────────
+
+export interface HoldingContext {
+  code: string
+  name?: string
+  shares: number
+  avgCost: number
+  currentPrice?: number | null
+  unrealizedPnL?: number | null
+  returnRate?: number | null
+}
+
+export interface PortfolioContext {
+  holdings: HoldingContext[]
+  totalValue?: number | null
+  totalPnL?: number | null
+  returnRate?: number | null
+  realizedPnL?: number | null
+}
+
+async function callGeminiAnalysis(apiKey: string, prompt: string): Promise<string> {
+  const res = await fetch(GEMINI_ANALYSIS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  })
+  if (!res.ok) {
+    if (res.status === 400 || res.status === 403) throw new Error('API Key 無效，請至 ⚙️ 設定重新輸入')
+    if (res.status === 429) throw new Error('Gemini 速率限制，請稍後再試')
+    if (res.status === 503 || res.status === 500) throw new Error('Gemini 伺服器暫時過載，請稍後再試')
+    throw new Error(`Gemini API 錯誤 (${res.status})`)
+  }
+  const data = await res.json()
+  const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? []
+  return parts.map(p => p.text ?? '').join('').trim()
+}
+
+function buildPortfolioContext(ctx: PortfolioContext): string {
+  const holdingsStr = ctx.holdings.map(h => {
+    const name = h.name ? `${h.name}(${h.code})` : h.code
+    const pnl = h.unrealizedPnL != null
+      ? `，未實現損益 ${h.unrealizedPnL > 0 ? '+' : ''}${Math.round(h.unrealizedPnL).toLocaleString()} 元` +
+        (h.returnRate != null ? `（${h.returnRate > 0 ? '+' : ''}${h.returnRate.toFixed(1)}%）` : '')
+      : ''
+    const price = h.currentPrice != null ? `，現價 ${h.currentPrice.toFixed(2)} 元` : ''
+    return `- ${name}：持有 ${h.shares} 股，均價 ${h.avgCost.toFixed(2)} 元${price}${pnl}`
+  }).join('\n')
+
+  const stats = [
+    ctx.totalValue != null ? `市值 ${Math.round(ctx.totalValue).toLocaleString()} 元` : '',
+    ctx.totalPnL != null ? `總損益 ${ctx.totalPnL > 0 ? '+' : ''}${Math.round(ctx.totalPnL).toLocaleString()} 元` : '',
+    ctx.returnRate != null ? `總報酬率 ${ctx.returnRate > 0 ? '+' : ''}${ctx.returnRate.toFixed(2)}%` : '',
+    ctx.realizedPnL != null ? `已實現損益 ${Math.round(ctx.realizedPnL).toLocaleString()} 元` : '',
+  ].filter(Boolean).join('，')
+
+  return `以下是我的台股持倉：\n${holdingsStr}\n整體概況：${stats}`
+}
+
+export async function generatePortfolioReport(apiKey: string, ctx: PortfolioContext): Promise<string> {
+  const prompt = buildPortfolioContext(ctx) +
+    '\n\n請用繁體中文針對我的持倉做分析，涵蓋：' +
+    '①產業集中度 ②各股未實現損益評估 ③潛在風險提示 ④整體投資風格判斷。' +
+    '直接給出分析，用條列或段落，清楚易讀，不要開場白。'
+  return callGeminiAnalysis(apiKey, prompt)
+}
+
+export async function chatWithPortfolio(
+  apiKey: string,
+  ctx: PortfolioContext,
+  question: string,
+): Promise<string> {
+  const prompt = buildPortfolioContext(ctx) + `\n\n問題：${question}\n請用繁體中文簡潔回答。`
+  return callGeminiAnalysis(apiKey, prompt)
 }

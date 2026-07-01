@@ -23,6 +23,8 @@ import FeeSettingsBar from './components/FeeSettingsBar'
 import DividendSuggestions, { SuggestedDividend } from './components/DividendSuggestions'
 import StockNews from './components/StockNews'
 import SettingsModal from './components/SettingsModal'
+import PortfolioAnalysis from './components/PortfolioAnalysis'
+import { PortfolioContext } from './services/gemini'
 import { fetchDividends } from './services/dividends'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
@@ -56,6 +58,7 @@ export default function App() {
   const [newsLoading, setNewsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -150,8 +153,10 @@ export default function App() {
   // 資料變動時同步到 Firestore
   useEffect(() => {
     if (!user || loadingFromFirestore.current) return
+    setSaveError(null)
     void saveUserData(user.uid, { transactions, stockNames }).catch(err => {
       Sentry.captureException(err, { tags: { feature: 'firestore-save' } })
+      setSaveError('資料同步失敗，刷新後可能遺失。請確認 Firebase 規則或網路連線。')
     })
   }, [transactions, stockNames, user])
 
@@ -444,6 +449,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-3">
               {syncing && <span className="text-xs text-blue-500">同步中…</span>}
+              {saveError && <span className="text-xs text-red-500 cursor-pointer" title={saveError}>⚠ 同步失敗</span>}
               {newsSearchLoading && <span className="text-xs text-purple-500">新聞搜尋中…</span>}
               {lastUpdated && !syncing && (
                 <span className="text-xs text-gray-400 hidden sm:inline">
@@ -525,6 +531,24 @@ export default function App() {
             />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
+            <PortfolioAnalysis
+              apiKey={loadGeminiKey()}
+              ctx={{
+                holdings: holdings.map(h => ({
+                  code: h.stockCode,
+                  name: stockNames[h.stockCode],
+                  shares: h.totalShares,
+                  avgCost: h.avgCost,
+                  currentPrice: h.currentPrice,
+                  unrealizedPnL: h.unrealizedPnL,
+                  returnRate: h.returnRate,
+                })) satisfies PortfolioContext['holdings'],
+                totalValue: summary.portfolioValue,
+                totalPnL: summary.totalPnL,
+                returnRate: summary.returnRate,
+                realizedPnL: summary.realizedPnL,
+              }}
+            />
           </>
         )}
 
