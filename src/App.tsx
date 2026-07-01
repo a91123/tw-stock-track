@@ -134,7 +134,8 @@ export default function App() {
 
     void (async () => {
       const cache = await loadNewsCache(user.uid).catch(() => null)
-      if (cache && isCacheTodayUTC(cache.fetchedAt)) {
+      const cacheHasNews = cache && Object.values(cache.items).some(arr => arr.length > 0)
+      if (cache && cacheHasNews && isCacheTodayUTC(cache.fetchedAt)) {
         setAutoNews(cache.items)
         setNewsDate(new Date(cache.fetchedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
         return

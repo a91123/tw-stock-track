@@ -130,35 +130,34 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
       )}
 
       {/* 持股自動新聞 */}
+      <div className="flex items-center justify-between min-h-[1.5rem]">
+        {newsDate && !newsLoading && (
+          <p className="text-xs text-gray-400">更新於 {newsDate}・每日早上 8 點自動重整</p>
+        )}
+        <button
+          onClick={onRefresh}
+          disabled={newsLoading}
+          className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 transition-colors ml-auto"
+        >
+          {newsLoading ? '更新中…' : '重新整理'}
+        </button>
+      </div>
+
       {newsLoading ? (
         <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-sm text-gray-400">
           正在抓取持股新聞…
         </div>
       ) : stockEntries.length > 0 ? (
-        <>
-          <div className="flex items-center justify-between">
-            {newsDate && (
-              <p className="text-xs text-gray-400">更新於 {newsDate}・每日早上 8 點自動重整</p>
-            )}
-            <button
-              onClick={onRefresh}
-              disabled={newsLoading}
-              className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 transition-colors ml-auto"
-            >
-              {newsLoading ? '更新中…' : '重新整理'}
-            </button>
+        stockEntries.map(([code, items]) => (
+          <div key={code} className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-sm font-semibold text-gray-900 mb-2">
+              {stockNames[code] || code}
+              {stockNames[code] && <span className="text-xs text-gray-400 ml-1.5 font-normal">{code}</span>}
+            </p>
+            {items.map((item, i) => <NewsCard key={i} item={item} />)}
           </div>
-          {stockEntries.map(([code, items]) => (
-            <div key={code} className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-sm font-semibold text-gray-900 mb-2">
-                {stockNames[code] || code}
-                {stockNames[code] && <span className="text-xs text-gray-400 ml-1.5 font-normal">{code}</span>}
-              </p>
-              {items.map((item, i) => <NewsCard key={i} item={item} />)}
-            </div>
-          ))}
-        </>
-      ) : !newsLoading && stockEntries.length === 0 && newsDate ? (
+        ))
+      ) : newsDate ? (
         <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-sm text-gray-400">
           今日無持股相關新聞
         </div>
