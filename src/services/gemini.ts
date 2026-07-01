@@ -67,17 +67,25 @@ export interface ScreenshotImage {
   mimeType: string
 }
 
-export async function fetchStockNews(
-  apiKey: string,
-  stockCode: string,
-  stockName?: string,
-): Promise<NewsItem[]> {
-  const label = stockName ? `${stockName}(${stockCode})` : stockCode
-  const prompt =
-    `請用 Google 搜尋「${label}」最近 7 天的台灣股市財經新聞，列出最多 5 則最重要的。` +
-    `只回傳 JSON 陣列，不要其他文字：` +
-    `[{"title":"...","summary":"一句話重點","source":"媒體名稱","date":"YYYY-MM-DD"}]`
+const JSON_FORMAT = `只回傳 JSON 陣列，不要其他文字：[{"title":"...","summary":"...","source":"媒體名稱","date":"YYYY-MM-DD"}]`
 
+function buildSearchPrompt(label: string): string {
+  return (
+    `搜尋「${label}」最近 7 天的財經新聞（包含中英文來源），列出最多 5 則最重要的，` +
+    `所有內容用繁體中文回答。${JSON_FORMAT}`
+  )
+}
+
+function buildHoldingsPrompt(label: string): string {
+  return (
+    `我持有 ${label} 股票。搜尋最近 7 天對這檔股票最重要的消息（包含中英文來源），` +
+    `重點關注：法說會／財報、分析師評等調整、重大訂單／合約、產業供需變化、影響股價的政策或總經消息。` +
+    `所有內容用繁體中文，最多 5 則，依重要性排序。` +
+    `summary 說明對股價的潛在影響。${JSON_FORMAT}`
+  )
+}
+
+async function callGeminiSearch(apiKey: string, prompt: string): Promise<NewsItem[]> {
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -86,9 +94,7 @@ export async function fetchStockNews(
       tools: [{ google_search: {} }],
     }),
   })
-
   if (!res.ok) return []
-
   const data = await res.json()
   const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
   const match = text.match(/\[[\s\S]*\]/)
@@ -98,6 +104,24 @@ export async function fetchStockNews(
   } catch {
     return []
   }
+}
+
+export async function fetchStockNews(
+  apiKey: string,
+  stockCode: string,
+  stockName?: string,
+): Promise<NewsItem[]> {
+  const label = stockName ? `${stockName}(${stockCode})` : stockCode
+  return callGeminiSearch(apiKey, buildSearchPrompt(label))
+}
+
+export async function fetchHoldingsNews(
+  apiKey: string,
+  stockCode: string,
+  stockName?: string,
+): Promise<NewsItem[]> {
+  const label = stockName ? `${stockName}(${stockCode})` : stockCode
+  return callGeminiSearch(apiKey, buildHoldingsPrompt(label))
 }
 
 export async function parseScreenshots(

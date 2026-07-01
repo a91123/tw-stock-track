@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react'
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from './services/firebase'
 import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache } from './services/firestore'
-import { fetchStockNews, loadGeminiKey, NewsItem } from './services/gemini'
+import { fetchStockNews, fetchHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
@@ -110,7 +110,7 @@ export default function App() {
       const items: Record<string, NewsItem[]> = {}
       await Promise.allSettled(
         heldCodes.slice(0, 5).map(async code => {
-          const news = await fetchStockNews(apiKey, code, stockNames[code])
+          const news = await fetchHoldingsNews(apiKey, code, stockNames[code])
           if (news.length > 0) items[code] = news
         }),
       )
