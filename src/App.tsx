@@ -155,8 +155,9 @@ export default function App() {
     if (!user || loadingFromFirestore.current) return
     setSaveError(null)
     void saveUserData(user.uid, { transactions, stockNames }).catch(err => {
+      console.error('[Firestore save error]', err)
       Sentry.captureException(err, { tags: { feature: 'firestore-save' } })
-      setSaveError('資料同步失敗，刷新後可能遺失。請確認 Firebase 規則或網路連線。')
+      setSaveError(`資料同步失敗：${err instanceof Error ? err.message : String(err)}`)
     })
   }, [transactions, stockNames, user])
 
@@ -449,7 +450,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-3">
               {syncing && <span className="text-xs text-blue-500">同步中…</span>}
-              {saveError && <span className="text-xs text-red-500 cursor-pointer" title={saveError}>⚠ 同步失敗</span>}
+              {saveError && <span className="text-xs text-red-500" title={saveError}>⚠ {saveError}</span>}
               {newsSearchLoading && <span className="text-xs text-purple-500">新聞搜尋中…</span>}
               {lastUpdated && !syncing && (
                 <span className="text-xs text-gray-400 hidden sm:inline">
