@@ -22,7 +22,8 @@ export async function loadUserData(uid: string): Promise<UserData | null> {
 
 export async function saveUserData(uid: string, data: UserData): Promise<void> {
   const ref = doc(db, 'users', uid, 'data', 'main')
-  await setDoc(ref, data)
+  // JSON round-trip strips undefined fields (Firestore rejects undefined values)
+  await setDoc(ref, JSON.parse(JSON.stringify(data)))
 }
 
 export async function loadNewsCache(uid: string): Promise<NewsCache | null> {
