@@ -32,9 +32,9 @@ export function saveGeminiKey(key: string): void {
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
-// 新聞搜尋用 2.0-flash：不需要 thinking，速度快 3-5x
+// 新聞搜尋用 2.5-flash-lite：與截圖辨識分開獨立配額，支援 Search grounding
 const GEMINI_NEWS_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
 
 const PROMPT = `你是台股交易紀錄解析器。請從這些券商 App 的截圖中，擷取所有「成交」的交易紀錄。
 
