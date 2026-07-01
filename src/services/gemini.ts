@@ -1,5 +1,12 @@
 import { TransactionType } from '../types'
 
+export interface NewsItem {
+  title: string
+  summary: string
+  source: string
+  date: string
+}
+
 export interface ParsedTx {
   stockCode: string
   type: TransactionType
@@ -58,6 +65,39 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export interface ScreenshotImage {
   base64: string
   mimeType: string
+}
+
+export async function fetchStockNews(
+  apiKey: string,
+  stockCode: string,
+  stockName?: string,
+): Promise<NewsItem[]> {
+  const label = stockName ? `${stockName}(${stockCode})` : stockCode
+  const prompt =
+    `請用 Google 搜尋「${label}」最近 7 天的台灣股市財經新聞，列出最多 5 則最重要的。` +
+    `只回傳 JSON 陣列，不要其他文字：` +
+    `[{"title":"...","summary":"一句話重點","source":"媒體名稱","date":"YYYY-MM-DD"}]`
+
+  const res = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+    }),
+  })
+
+  if (!res.ok) return []
+
+  const data = await res.json()
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const match = text.match(/\[[\s\S]*\]/)
+  if (!match) return []
+  try {
+    return JSON.parse(match[0]) as NewsItem[]
+  } catch {
+    return []
+  }
 }
 
 export async function parseScreenshots(

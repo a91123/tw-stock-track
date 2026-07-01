@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import * as Sentry from '@sentry/react'
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from './services/firebase'
-import { loadUserData, saveUserData } from './services/firestore'
+import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache } from './services/firestore'
+import { fetchStockNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
@@ -20,15 +21,17 @@ import ReturnCalendar from './components/ReturnCalendar'
 import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
 import DividendSuggestions, { SuggestedDividend } from './components/DividendSuggestions'
+import StockNews from './components/StockNews'
 import { fetchDividends } from './services/dividends'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
-type TabKey = 'assets' | 'holdings' | 'records'
+type TabKey = 'assets' | 'holdings' | 'records' | 'news'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'assets', label: '資產', icon: '📊' },
   { key: 'holdings', label: '庫存', icon: '📦' },
   { key: 'records', label: '紀錄', icon: '📝' },
+  { key: 'news', label: '新聞', icon: '📰' },
 ]
 
 export default function App() {
@@ -47,6 +50,9 @@ export default function App() {
   const loadingFromFirestore = useRef(false)
   const [dividendSuggestions, setDividendSuggestions] = useState<SuggestedDividend[] | null>(null)
   const [checkingDividends, setCheckingDividends] = useState(false)
+  const [autoNews, setAutoNews] = useState<Record<string, NewsItem[]>>({})
+  const [newsDate, setNewsDate] = useState<string | null>(null)
+  const [newsLoading, setNewsLoading] = useState(false)
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -76,6 +82,48 @@ export default function App() {
       }
     })
   }, [])
+
+  // 每日自動抓取持股新聞（登入後 + 今日尚未抓過）
+  useEffect(() => {
+    if (!user || loadingFromFirestore.current) return
+    const today = new Date().toISOString().slice(0, 10)
+    const apiKey = loadGeminiKey()
+    if (!apiKey) return
+
+    // 計算目前有持股的代碼（不需要 pricesByStock，純從交易推算）
+    const sharesMap: Record<string, number> = {}
+    for (const t of transactions) {
+      if (t.type === 'buy') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) + t.shares
+      else if (t.type === 'sell') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) - t.shares
+    }
+    const heldCodes = Object.entries(sharesMap).filter(([, s]) => s > 0).map(([c]) => c)
+    if (heldCodes.length === 0) return
+
+    void (async () => {
+      // 先讀快取，今天已抓過就不重打
+      const cache = await loadNewsCache(user.uid).catch(() => null)
+      if (cache?.date === today) {
+        setAutoNews(cache.items)
+        setNewsDate(cache.date)
+        return
+      }
+
+      setNewsLoading(true)
+      const items: Record<string, NewsItem[]> = {}
+      await Promise.allSettled(
+        heldCodes.slice(0, 5).map(async code => {
+          const news = await fetchStockNews(apiKey, code, stockNames[code])
+          if (news.length > 0) items[code] = news
+        }),
+      )
+      const newCache: NewsCache = { date: today, items }
+      setAutoNews(items)
+      setNewsDate(today)
+      setNewsLoading(false)
+      await saveNewsCache(user.uid, newCache).catch(() => {})
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, transactions])
 
   // 資料變動時同步到 Firestore
   useEffect(() => {
@@ -287,6 +335,12 @@ export default function App() {
     await signOut(auth)
   }
 
+  async function handleNewsSearch(query: string): Promise<NewsItem[]> {
+    const apiKey = loadGeminiKey()
+    if (!apiKey) return []
+    return fetchStockNews(apiKey, query, stockNames[query])
+  }
+
   async function handleCheckDividends() {
     setCheckingDividends(true)
     const codes = [...new Set(transactions.map(t => t.stockCode))]
@@ -491,6 +545,17 @@ export default function App() {
               <TransactionList transactions={transactions} onDelete={deleteTransaction} />
             </div>
           </>
+        )}
+        {/* 新聞 */}
+        {tab === 'news' && (
+          <StockNews
+            apiKey={loadGeminiKey()}
+            autoNews={autoNews}
+            stockNames={stockNames}
+            newsDate={newsDate}
+            newsLoading={newsLoading}
+            onSearch={handleNewsSearch}
+          />
         )}
       </main>
 
