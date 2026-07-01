@@ -22,6 +22,7 @@ import ImportTransactions from './components/ImportTransactions'
 import FeeSettingsBar from './components/FeeSettingsBar'
 import DividendSuggestions, { SuggestedDividend } from './components/DividendSuggestions'
 import StockNews from './components/StockNews'
+import SettingsModal from './components/SettingsModal'
 import { fetchDividends } from './services/dividends'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
@@ -53,6 +54,7 @@ export default function App() {
   const [autoNews, setAutoNews] = useState<Record<string, NewsItem[]>>({})
   const [newsDate, setNewsDate] = useState<string | null>(null)
   const [newsLoading, setNewsLoading] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -432,6 +434,13 @@ export default function App() {
               >
                 {loading ? '更新中…' : '更新股價'}
               </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="text-lg leading-none text-gray-400 hover:text-gray-600 transition-colors"
+                title="設定"
+              >
+                ⚙️
+              </button>
               <div className="flex items-center gap-2">
                 {user.photoURL && (
                   <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />
@@ -537,7 +546,7 @@ export default function App() {
               </div>
             )}
             {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
-            <ImportTransactions onAddMany={addTransactions} />
+            <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
               <TransactionForm onAdd={addTransaction} />
               <TransactionList transactions={transactions} onDelete={deleteTransaction} />
@@ -560,6 +569,8 @@ export default function App() {
       <footer className="text-center py-6 text-xs text-gray-300">
         股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議
       </footer>
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   )
 }

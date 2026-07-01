@@ -63,7 +63,7 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
           </button>
         </div>
         {!apiKey && (
-          <p className="text-xs text-amber-600 mt-1.5">請先在「紀錄」分頁設定 Gemini API Key</p>
+          <p className="text-xs text-amber-600 mt-1.5">請先點右上角 ⚙️ 設定 Gemini API Key</p>
         )}
       </div>
 

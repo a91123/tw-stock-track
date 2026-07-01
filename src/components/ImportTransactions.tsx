@@ -5,12 +5,12 @@ import {
   ParsedTx,
   parseScreenshots,
   loadGeminiKey,
-  saveGeminiKey,
 } from '../services/gemini'
 import { parseCsv } from '../utils/csv'
 
 interface Props {
   onAddMany: (txs: Omit<Transaction, 'id'>[]) => void
+  onOpenSettings: () => void
 }
 
 const MAX_IMAGES = 8
@@ -38,30 +38,16 @@ function isValidTx(tx: ParsedTx): boolean {
   )
 }
 
-export default function ImportTransactions({ onAddMany }: Props) {
+export default function ImportTransactions({ onAddMany, onOpenSettings }: Props) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
-  const [apiKey, setApiKey] = useState(() => loadGeminiKey())
-  const [keyDraft, setKeyDraft] = useState('')
-  const [editingKey, setEditingKey] = useState(false)
+  const [apiKey] = useState(() => loadGeminiKey())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParsedTx[] | null>(null)
   const [parsedSource, setParsedSource] = useState<'截圖匯入' | 'CSV 匯入'>('截圖匯入')
   const [bulkCode, setBulkCode] = useState('')
-
-  const needKey = !apiKey || editingKey
-
-  function handleSaveKey() {
-    const k = keyDraft.trim()
-    if (!k) return
-    saveGeminiKey(k)
-    setApiKey(k)
-    setKeyDraft('')
-    setEditingKey(false)
-    setError(null)
-  }
 
   async function handleImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []).slice(0, MAX_IMAGES)
@@ -153,96 +139,7 @@ export default function ImportTransactions({ onAddMany }: Props) {
 
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700">匯入交易（截圖 / CSV）</h2>
-        {apiKey && !editingKey && (
-          <button
-            onClick={() => setEditingKey(true)}
-            className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
-          >
-            更換 API key
-          </button>
-        )}
-      </div>
-
-      {needKey && (
-        <div className="space-y-2 mb-3">
-          <p className="text-xs text-gray-500">
-            截圖辨識需要 Gemini API key（免費）。Key 只會儲存在你的瀏覽器裡，不會上傳到任何伺服器。CSV 匯入不需要 key。
-          </p>
-
-          <details className="bg-blue-50 rounded-lg px-3 py-2">
-            <summary className="text-xs font-semibold text-blue-700 cursor-pointer select-none">
-              📖 如何免費申請 API key？（點我看教學）
-            </summary>
-            <ol className="mt-2 space-y-2 text-xs text-gray-600 list-none">
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">1</span>
-                <span>
-                  開啟{' '}
-                  <a
-                    href="https://aistudio.google.com/apikey"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 font-medium underline"
-                  >
-                    Google AI Studio
-                  </a>
-                  （點此連結，會開新分頁）
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">2</span>
-                <span>用你的 <strong>Google 帳號</strong> 登入（就是 Gmail 帳號）</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">3</span>
-                <span>第一次使用會跳出服務條款，勾選同意後繼續</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">4</span>
-                <span>點右上角的「<strong>建立 API 金鑰</strong>」（Create API key）按鈕</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">5</span>
-                <span>複製產生的金鑰（一串 <strong>AIza</strong> 開頭的英數字）</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">6</span>
-                <span>回到這裡，貼到下方輸入框按「儲存」，完成！</span>
-              </li>
-            </ol>
-            <p className="mt-2 text-xs text-gray-400">
-              💡 完全免費，不需要綁信用卡。免費額度每天可辨識約 250 次，個人使用綽綽有餘。
-            </p>
-          </details>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={keyDraft}
-              onChange={e => setKeyDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSaveKey() }}
-              placeholder="貼上 Gemini API key（AIza 開頭）"
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSaveKey}
-              disabled={!keyDraft.trim()}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
-            >
-              儲存
-            </button>
-            {editingKey && (
-              <button
-                onClick={() => { setEditingKey(false); setKeyDraft('') }}
-                className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                取消
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      <h2 className="text-sm font-semibold text-gray-700 mb-3">匯入交易（截圖 / CSV）</h2>
 
       <input
         ref={imageInputRef}
@@ -262,13 +159,20 @@ export default function ImportTransactions({ onAddMany }: Props) {
 
       {!parsed && (
         <div className="space-y-2">
-          {!needKey && (
+          {apiKey ? (
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={loading}
               className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 disabled:opacity-50 transition-colors"
             >
               {loading ? '辨識中…' : '📷 上傳券商截圖（可多選，同頁面捲動截圖請一起選）'}
+            </button>
+          ) : (
+            <button
+              onClick={onOpenSettings}
+              className="w-full py-3 border-2 border-dashed border-amber-300 rounded-lg text-sm text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-colors"
+            >
+              📷 截圖辨識需要 Gemini API Key，請點此前往 ⚙️ 設定
             </button>
           )}
           <button
