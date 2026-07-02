@@ -672,6 +672,7 @@ export default function App() {
           >
             ⚙️ <span>設定</span>
           </button>
+          <p className="text-center text-xs text-slate-600 pt-1 select-none">v1.1.1</p>
         </div>
       </aside>
 
