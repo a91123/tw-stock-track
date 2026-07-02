@@ -519,7 +519,6 @@ export default function App() {
               firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
               portfolioReturn={summary.returnRate}
               pricesByStock={pricesByStock}
-              transactions={transactions}
               holdings={stockDetails}
             />
           )}

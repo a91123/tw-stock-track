@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import { fetchStockPrices, clearPriceCache } from '../services/stockPrices'
 import { fetchDividends, clearDividendCache } from '../services/dividends'
-import { Transaction, StockDetail } from '../types'
-import { getSharesOnDate } from '../utils/pnl'
+import { StockDetail } from '../types'
 
 interface Props {
   firstBuyDate: string
   portfolioReturn: number                              // all-time total return (已含股利)
   pricesByStock: Map<string, Map<string, number>>     // stockCode → date → close
-  transactions: Transaction[]
   holdings: StockDetail[]                             // 目前持倉（含 currentPrice）
 }
 
@@ -69,17 +67,15 @@ async function fetchTotalReturn(code: string, fromDate: string): Promise<Benchma
 
 /**
  * 計算特定區間的組合報酬：
- * - 對每檔現持股：取 fromDate 當時的持股數 × 當時股價 = 期初市值
- * - 期末市值 = 現在持股數 × 現價
- * - return = (期末 - 期初) / 期初
+ * - 對每檔現持股：用「現在持股數 × fromDate 股價」當期初市值
+ * - 用「現在持股數 × 現價」當期末市值
+ * - 回答的問題：「從 fromDate 到現在，我現在的這些股票漲了多少？」
  *
- * 不含期間內新增買進的貢獻（它們在 fromDate 持股數 = 0 所以自動排除），
- * 也不含期間內賣掉的股票（已不在 holdings 內，自動排除）。
- * 這是「現有持股從 fromDate 至今的純股價報酬」。
+ * 不使用 getSharesOnDate 是為了避免 CSV 匯入的賣出交易（無對應買入）
+ * 干擾持股數計算，導致分母失真。
  */
 function calcPortfolioReturn(
   pricesByStock: Map<string, Map<string, number>>,
-  transactions: Transaction[],
   holdings: StockDetail[],
   fromDate: string,
 ): number | null {
@@ -91,16 +87,12 @@ function calcPortfolioReturn(
     const priceMap = pricesByStock.get(h.stockCode)
     if (!priceMap) continue
 
-    // 找 fromDate 當日或之後最近的有價格日
     const dates = [...priceMap.keys()].sort()
     const startDateKey = dates.find(d => d >= fromDate)
     if (!startDateKey) continue
 
-    const sharesOnDate = getSharesOnDate(transactions, h.stockCode, fromDate)
-    if (sharesOnDate <= 0) continue
-
     const startPrice = priceMap.get(startDateKey)!
-    startValue += sharesOnDate * startPrice
+    startValue += h.totalShares * startPrice
     endValue += h.totalShares * h.currentPrice
   }
 
@@ -112,7 +104,6 @@ export default function BenchmarkComparison({
   firstBuyDate,
   portfolioReturn,
   pricesByStock,
-  transactions,
   holdings,
 }: Props) {
   const [period, setPeriod] = useState<Period>('all')
@@ -167,7 +158,7 @@ export default function BenchmarkComparison({
   const fromDate = getFromDate()
   const activePortfolioReturn = period === 'all'
     ? portfolioReturn
-    : calcPortfolioReturn(pricesByStock, transactions, holdings, fromDate)
+    : calcPortfolioReturn(pricesByStock, holdings, fromDate)
 
   const benchmarkReturn = result?.returnPct ?? null
   const diff = (benchmarkReturn !== null && activePortfolioReturn !== null)
