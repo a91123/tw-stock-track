@@ -114,8 +114,8 @@ export default function BenchmarkComparison({
     if (!firstBuyDate) return
     setLoading(true)
     setErrorMsg(null)
-    // 抓 3 年或首次買入（取較早者）的全部歷史，一次到位
-    const fetchFrom = maxDate(subtractDays(3 * 365), firstBuyDate) < firstBuyDate
+    // 取「3 年前」與「firstBuyDate」的較早者，確保每個期間都有足夠的歷史資料
+    const fetchFrom = subtractDays(3 * 365) < firstBuyDate
       ? subtractDays(3 * 365)
       : firstBuyDate
     Promise.all([
@@ -131,16 +131,22 @@ export default function BenchmarkComparison({
       .finally(() => setLoading(false))
   }, [firstBuyDate, benchmarkCode, retryCount])
 
-  function getFromDate(): string {
+  // 基準從期間起點算（可早於 firstBuyDate）
+  function getBenchmarkFromDate(): string {
     if (period === 'all') return firstBuyDate
-    const daysAgo = PERIODS.find(p => p.key === period)!.days!
-    return maxDate(subtractDays(daysAgo), firstBuyDate)
+    return subtractDays(PERIODS.find(p => p.key === period)!.days!)
   }
 
-  // 切期間時從記憶體算，不觸發任何 loading
+  // 組合只能從 firstBuyDate 算（買之前沒有部位）
+  function getPortfolioFromDate(): string {
+    if (period === 'all') return firstBuyDate
+    return maxDate(subtractDays(PERIODS.find(p => p.key === period)!.days!), firstBuyDate)
+  }
+
+  // 切期間從記憶體算，不觸發 loading
   const result = useMemo<BenchmarkResult | null>(() => {
     if (benchmarkPrices.length === 0) return null
-    return computeBenchmarkReturn(benchmarkPrices, benchmarkDivs, getFromDate())
+    return computeBenchmarkReturn(benchmarkPrices, benchmarkDivs, getBenchmarkFromDate())
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [benchmarkPrices, benchmarkDivs, period, firstBuyDate])
 
@@ -163,10 +169,14 @@ export default function BenchmarkComparison({
     setRetryCount(c => c + 1)
   }
 
-  const fromDate = getFromDate()
+  const portfolioFromDate = getPortfolioFromDate()
   const activePortfolioReturn = period === 'all'
     ? portfolioReturn
-    : calcPortfolioReturn(pricesByStock, holdings, fromDate)
+    : calcPortfolioReturn(pricesByStock, holdings, portfolioFromDate)
+
+  // 當期間超出持倉時間，組合 fromDate 被鎖在 firstBuyDate
+  const portfolioCapped = period !== 'all' &&
+    subtractDays(PERIODS.find(p => p.key === period)!.days!) < firstBuyDate
 
   const benchmarkReturn = result?.returnPct ?? null
   const diff = (benchmarkReturn !== null && activePortfolioReturn !== null)
@@ -257,11 +267,14 @@ export default function BenchmarkComparison({
               </div>
             )}
           </div>
-          {result && (
-            <p className="text-xs text-gray-400 mt-2">
-              比較區間：{fmtPeriod(result.actualStartDate)} 起
-            </p>
-          )}
+          <p className="text-xs text-gray-400 mt-2">
+            {result && <>基準：{fmtPeriod(result.actualStartDate)} 起</>}
+            {portfolioCapped && (
+              <span className="text-amber-500 ml-2">
+                組合持倉未滿 {PERIODS.find(p => p.key === period)!.label}，以 {fmtPeriod(firstBuyDate)} 起計
+              </span>
+            )}
+          </p>
         </>
       )}
 
