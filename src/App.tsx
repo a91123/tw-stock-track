@@ -416,8 +416,8 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6">
         <div className="text-center">
-          <p className="text-3xl font-bold text-gray-900 mb-1">台股損益追蹤器</p>
-          <p className="text-sm text-gray-400">Taiwan Stock P&amp;L Tracker</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">維股厲</p>
+          <p className="text-sm text-gray-400">台股損益追蹤器</p>
         </div>
         <button
           onClick={handleLogin}
@@ -444,8 +444,7 @@ export default function App() {
         <header className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-gray-900">台股損益追蹤器</span>
-              <span className="text-xs text-gray-400 hidden sm:inline">Taiwan Stock P&amp;L Tracker</span>
+              <span className="text-xl font-bold text-gray-900">維股厲</span>
             </div>
             <div className="flex items-center gap-3">
               {syncing && <span className="text-xs text-blue-500">同步中…</span>}
