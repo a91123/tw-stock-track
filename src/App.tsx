@@ -208,24 +208,30 @@ export default function App() {
     const errors: string[] = []
     const newMap = new Map<string, Map<string, number>>()
 
-    await Promise.allSettled(
-      stocks.map(async ({ code, minDate }) => {
-        try {
-          const prices = await fetchStockPrices(code, minDate, force)
-          const m = new Map<string, number>()
-          prices.forEach(p => m.set(p.date, p.close))
-          newMap.set(code, m)
-        } catch (err) {
-          Sentry.captureException(err, { tags: { feature: 'stock-prices' }, extra: { code } })
-          errors.push(`${code}: ${err instanceof Error ? err.message : '未知錯誤'}`)
-        }
-      }),
-    )
+    // Safety: release loading after 30s even if some fetches hang (mobile weak network)
+    const safetyTimer = setTimeout(() => setLoading(false), 30_000)
 
-    if (errors.length > 0) setError(`無法取得股價：${errors.join('；')}`)
-    setPricesByStock(new Map(newMap))
-    setLastUpdated(new Date())
-    setLoading(false)
+    try {
+      await Promise.allSettled(
+        stocks.map(async ({ code, minDate }) => {
+          try {
+            const prices = await fetchStockPrices(code, minDate, force)
+            const m = new Map<string, number>()
+            prices.forEach(p => m.set(p.date, p.close))
+            newMap.set(code, m)
+          } catch (err) {
+            Sentry.captureException(err, { tags: { feature: 'stock-prices' }, extra: { code } })
+            errors.push(`${code}: ${err instanceof Error ? err.message : '未知錯誤'}`)
+          }
+        }),
+      )
+    } finally {
+      clearTimeout(safetyTimer)
+      if (errors.length > 0) setError(`無法取得股價：${errors.join('；')}`)
+      setPricesByStock(new Map(newMap))
+      setLastUpdated(new Date())
+      setLoading(false)
+    }
   }
 
   function handleRefresh() {
@@ -776,8 +782,9 @@ export default function App() {
           {tabContent}
         </main>
 
-        <footer className="text-center py-6 text-xs text-gray-300">
-          股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議
+        <footer className="text-center py-6 text-xs text-gray-300 space-y-1">
+          <p>股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議</p>
+          <p>v1.1.2</p>
         </footer>
       </div>
 
