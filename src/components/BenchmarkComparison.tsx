@@ -236,9 +236,10 @@ export default function BenchmarkComparison({
           </p>
           <button
             onClick={handleRetry}
-            className="text-xs text-teal-600 hover:text-teal-800 underline underline-offset-2"
+            disabled={loading}
+            className="text-xs text-teal-600 hover:text-teal-800 underline underline-offset-2 disabled:opacity-40"
           >
-            清除快取並重新查詢
+            {loading ? '查詢中…' : '清除快取並重新查詢'}
           </button>
         </div>
       ) : benchmarkReturn === null ? (
@@ -278,10 +279,11 @@ export default function BenchmarkComparison({
             </p>
             <button
               onClick={handleRetry}
-              className="text-xs text-gray-300 hover:text-teal-600 transition-colors shrink-0"
+              disabled={loading}
+              className="text-xs text-gray-300 hover:text-teal-600 transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
               title="數字不對？清除快取重新抓"
             >
-              重新整理
+              {loading ? '查詢中…' : '重新整理'}
             </button>
           </div>
         </>
