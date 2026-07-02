@@ -42,13 +42,36 @@ function maxDate(a: string, b: string): string {
   return a >= b ? a : b
 }
 
+/**
+ * 偵測並調整股票分割造成的歷史股價不連續。
+ * TWSE 不會自動回補調整後的歷史股價，所以若相鄰兩個交易日的收盤價
+ * 差距超過 40%，視為分割事件，將之前所有股價乘以同樣的倍率，
+ * 讓全部歷史價格統一在「目前股數」的基準上。
+ */
+function adjustForSplits(sorted: StockPrice[]): StockPrice[] {
+  if (sorted.length < 2) return sorted
+  const result = sorted.map(p => ({ ...p }))
+  for (let i = 1; i < result.length; i++) {
+    if (result[i - 1].close === 0) continue
+    const ratio = result[i].close / result[i - 1].close
+    if (ratio < 0.6 || ratio > 1.65) {
+      for (let j = 0; j < i; j++) {
+        result[j] = { ...result[j], close: result[j].close * ratio }
+      }
+    }
+  }
+  return result
+}
+
 /** 從已載入的資料中計算指定區間的含股利報酬（同步，無網路請求） */
 function computeBenchmarkReturn(
   prices: StockPrice[],
   dividends: DividendRecord[],
   fromDate: string,
 ): BenchmarkResult | null {
-  const sorted = [...prices].sort((a, b) => a.date.localeCompare(b.date))
+  const rawSorted = [...prices].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = adjustForSplits(rawSorted)
+
   const startEntry = sorted.find(p => p.date >= fromDate)
   const endEntry = sorted[sorted.length - 1]
   if (!startEntry || !endEntry || startEntry.date === endEntry.date) return null
