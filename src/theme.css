@@ -31,6 +31,9 @@
 /* Theme C: 專業 (slate-900 + teal) — DEFAULT, no overrides needed */
 
 /* ===== Dark Mode ===== */
+/* 全域預設文字色：讓沒有 text-* class 的元素也能在深色背景上顯示 */
+[data-dark="true"] { color: #e8edf5; }
+
 /* 三層結構：頁面底色 → 卡片 → 卡片內格 */
 
 /* 頁面底色（最深） */
@@ -59,9 +62,9 @@
 [data-dark="true"] .text-gray-800 { color: #d4dbe8; }
 [data-dark="true"] .text-gray-700 { color: #b0bdd2; }
 [data-dark="true"] .text-gray-600 { color: #8095ae; }
-[data-dark="true"] .text-gray-500 { color: #5c6e84; }
-[data-dark="true"] .text-gray-400 { color: #415163; }
-[data-dark="true"] .text-gray-300 { color: #2a3a4a; }
+[data-dark="true"] .text-gray-500 { color: #6b7f96; }
+[data-dark="true"] .text-gray-400 { color: #8095ae; }
+[data-dark="true"] .text-gray-300 { color: #4a6278; }
 
 /* 邊框 */
 [data-dark="true"] .border-gray-50 { border-color: #1e3048; }
@@ -82,4 +85,18 @@
   background-color: #1e3048;
   color: #e8edf5;
   border-color: #334f6a;
+}
+
+/* Recharts 深色模式：格線調暗、tooltip 換深色底 */
+[data-dark="true"] .recharts-cartesian-grid-horizontal line,
+[data-dark="true"] .recharts-cartesian-grid-vertical line {
+  stroke: #263d56;
+}
+[data-dark="true"] .recharts-default-tooltip {
+  background-color: #1e3048 !important;
+  border-color: #334f6a !important;
+}
+[data-dark="true"] .recharts-tooltip-label,
+[data-dark="true"] .recharts-tooltip-item {
+  color: #e8edf5 !important;
 }

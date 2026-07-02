@@ -626,7 +626,7 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 sm:flex" data-dark={isDark ? 'true' : undefined}>
+    <div className="min-h-screen bg-gray-50 sm:flex" data-dark={isDark ? 'true' : undefined}>
 
       {/* ── 桌機側邊欄 ────────────────────────────── */}
       <aside className="hidden sm:flex sm:flex-col w-52 shrink-0 sticky top-0 h-screen bg-slate-900 z-20 overflow-y-auto">
