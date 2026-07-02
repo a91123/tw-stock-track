@@ -1,8 +1,8 @@
-# 維股厲 — 開發進度
+# 維股利 — 開發進度
 
 ## 專案概況
 
-- **名稱**：維股厲（諧音：維骨力）
+- **名稱**：維股利（諧音：維骨力）
 - **技術**：React 18 + TypeScript + Vite + Tailwind + Vercel
 - **後端**：Firebase Auth（Google 登入）+ Firestore（雲端儲存）
 - **AI**：Gemini API（截圖辨識 / 新聞 / 持倉分析）
