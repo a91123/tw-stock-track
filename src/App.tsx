@@ -25,7 +25,9 @@ import StockNews from './components/StockNews'
 import SettingsModal from './components/SettingsModal'
 import PortfolioAnalysis from './components/PortfolioAnalysis'
 import { PortfolioContext } from './services/gemini'
-import { fetchDividends } from './services/dividends'
+import { fetchDividends, clearDividendCache } from './services/dividends'
+import AllocationChart from './components/AllocationChart'
+import BenchmarkComparison from './components/BenchmarkComparison'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 type TabKey = 'assets' | 'holdings' | 'records' | 'news'
@@ -51,6 +53,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const loadingFromFirestore = useRef(false)
+  const autoFetchedDividends = useRef(false)
   const [dividendSuggestions, setDividendSuggestions] = useState<SuggestedDividend[] | null>(null)
   const [checkingDividends, setCheckingDividends] = useState(false)
   const [autoNews, setAutoNews] = useState<Record<string, NewsItem[]>>({})
@@ -59,7 +62,6 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [theme, setTheme] = useState<'A' | 'B' | 'C'>(() => (localStorage.getItem('ui-theme') as 'A' | 'B' | 'C') ?? 'C')
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -371,9 +373,10 @@ export default function App() {
     return fetchStockNews(apiKey, query, stockNames[query])
   }
 
-  async function handleCheckDividends() {
+  async function handleCheckDividends(forceRefresh = false) {
     setCheckingDividends(true)
     const codes = [...new Set(transactions.map(t => t.stockCode))]
+    if (forceRefresh) codes.forEach(clearDividendCache)
     const recordedKeys = new Set(
       transactions.filter(t => t.type === 'dividend').map(t => `${t.stockCode}:${t.date}`),
     )
@@ -402,6 +405,14 @@ export default function App() {
     setDividendSuggestions(suggestions)
     setCheckingDividends(false)
   }
+
+  // 持倉載入後自動查一次配息（每次 session 只跑一次，快取 7 天）
+  useEffect(() => {
+    if (autoFetchedDividends.current) return
+    if (holdings.length === 0 || transactions.length === 0) return
+    autoFetchedDividends.current = true
+    handleCheckDividends()
+  }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 檢查 auth 狀態中
   if (authLoading) {
@@ -440,7 +451,7 @@ export default function App() {
   const hasData = transactions.length > 0
 
   return (
-    <div className="min-h-screen bg-slate-50" data-theme={theme}>
+    <div className="min-h-screen bg-slate-50">
       <div className="sticky top-0 z-20">
         <header className="bg-slate-900">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
@@ -466,18 +477,6 @@ export default function App() {
               >
                 {loading ? '更新中…' : '更新股價'}
               </button>
-              <div className="flex items-center gap-0.5 bg-slate-800 rounded-lg p-0.5">
-                {(['C', 'A', 'B'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => { setTheme(t); localStorage.setItem('ui-theme', t) }}
-                    className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${theme === t ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    title={{ C: '專業（青綠）', A: '科技（電藍）', B: '金融（金色）' }[t]}
-                  >
-                    {t === 'C' ? '專' : t === 'A' ? '科' : '金'}
-                  </button>
-                ))}
-              </div>
               <button
                 onClick={() => setShowSettings(true)}
                 className="text-lg leading-none text-slate-400 hover:text-white transition-colors"
@@ -544,6 +543,15 @@ export default function App() {
               holdingDays={annualized.holdingDays}
               incompletePrices={annualized.incompletePrices}
             />
+            {holdings.length > 0 && (
+              <AllocationChart holdings={holdings} names={stockNames} />
+            )}
+            {annualized.holdingDays > 0 && (
+              <BenchmarkComparison
+                firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
+                portfolioReturn={summary.returnRate}
+              />
+            )}
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             <PortfolioAnalysis
@@ -569,24 +577,27 @@ export default function App() {
 
         {tab === 'holdings' && hasData && (
           <>
-            {dividendSuggestions === null ? (
-              <div className="flex justify-end">
-                <button
-                  onClick={handleCheckDividends}
-                  disabled={checkingDividends || pricesByStock.size === 0}
-                  className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {checkingDividends ? '查詢中…' : '查詢未入帳配息'}
-                </button>
-              </div>
-            ) : dividendSuggestions.length > 0 ? (
+            {checkingDividends ? (
+              <div className="text-xs text-gray-400 text-right">配息查詢中…</div>
+            ) : dividendSuggestions && dividendSuggestions.length > 0 ? (
               <DividendSuggestions
                 suggestions={dividendSuggestions}
                 onAdd={txs => { addTransactions(txs); setDividendSuggestions(null) }}
                 onDismiss={() => setDividendSuggestions(null)}
               />
             ) : (
-              <div className="text-xs text-gray-400 text-right">✓ 配息紀錄都已入帳</div>
+              <div className="flex items-center justify-end gap-2">
+                {dividendSuggestions !== null && (
+                  <span className="text-xs text-gray-400">✓ 配息紀錄都已入帳</span>
+                )}
+                <button
+                  onClick={() => handleCheckDividends(true)}
+                  disabled={checkingDividends}
+                  className="text-xs text-gray-400 hover:text-teal-600 disabled:opacity-40 transition-colors"
+                >
+                  重新查詢
+                </button>
+              </div>
             )}
             {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
             {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
