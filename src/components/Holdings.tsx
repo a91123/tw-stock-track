@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { HoldingData } from '../utils/pnl'
 import { PriceAlert } from '../services/firestore'
+import { Transaction } from '../types'
 import EditableName from './EditableName'
+import StockChart from './StockChart'
 
 interface Props {
   holdings: HoldingData[]
   isRealtime?: boolean
   names: Record<string, string>
   priceAlerts: Record<string, PriceAlert>
+  pricesByStock: Map<string, Map<string, number>>
+  transactions: Transaction[]
   onRename: (code: string, name: string) => void
   onSetAlert: (code: string, alert: PriceAlert) => void
 }
@@ -77,8 +81,9 @@ function AlertEditor({ code, alert, onSave, onClose }: {
   )
 }
 
-export default function Holdings({ holdings, isRealtime, names, priceAlerts, onRename, onSetAlert }: Props) {
+export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert }: Props) {
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
+  const [expandedChart, setExpandedChart] = useState<string | null>(null)
 
   if (holdings.length === 0) return null
 
@@ -117,7 +122,13 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, onR
                   <tr key={h.stockCode} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900">{h.stockCode}</span>
+                        <button
+                          onClick={() => setExpandedChart(expandedChart === h.stockCode ? null : h.stockCode)}
+                          className="font-bold text-gray-900 hover:text-teal-600 transition-colors"
+                          title="點擊查看走勢圖"
+                        >
+                          {h.stockCode}
+                        </button>
                         <EditableName code={h.stockCode} name={names[h.stockCode]} onRename={onRename} />
                       </div>
                       <AlertBadges price={h.currentPrice} alert={alert} />
@@ -151,6 +162,19 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, onR
                           alert={alert}
                           onSave={a => onSetAlert(h.stockCode, a)}
                           onClose={() => setEditingAlert(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  {expandedChart === h.stockCode && pricesByStock.has(h.stockCode) && (
+                    <tr key={`${h.stockCode}-chart`}>
+                      <td colSpan={8} className="px-3">
+                        <StockChart
+                          stockCode={h.stockCode}
+                          prices={pricesByStock.get(h.stockCode)!}
+                          transactions={transactions}
+                          avgCost={h.avgCost}
+                          currentPrice={h.currentPrice}
                         />
                       </td>
                     </tr>
@@ -204,12 +228,29 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, onR
                   <PnLText value={h.unrealizedPnL} />
                 </div>
               </div>
-              <button
-                onClick={() => setEditingAlert(editingAlert === h.stockCode ? null : h.stockCode)}
-                className="mt-2 text-xs text-gray-400 hover:text-teal-600 transition-colors"
-              >
-                {(alert.target || alert.stopLoss) ? '✏️ 編輯警示' : '＋設定警示'}
-              </button>
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={() => setExpandedChart(expandedChart === h.stockCode ? null : h.stockCode)}
+                  className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
+                >
+                  {expandedChart === h.stockCode ? '▲ 收起圖表' : '📈 走勢圖'}
+                </button>
+                <button
+                  onClick={() => setEditingAlert(editingAlert === h.stockCode ? null : h.stockCode)}
+                  className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
+                >
+                  {(alert.target || alert.stopLoss) ? '✏️ 編輯警示' : '＋設定警示'}
+                </button>
+              </div>
+              {expandedChart === h.stockCode && pricesByStock.has(h.stockCode) && (
+                <StockChart
+                  stockCode={h.stockCode}
+                  prices={pricesByStock.get(h.stockCode)!}
+                  transactions={transactions}
+                  avgCost={h.avgCost}
+                  currentPrice={h.currentPrice}
+                />
+              )}
               {editingAlert === h.stockCode && (
                 <AlertEditor
                   code={h.stockCode}

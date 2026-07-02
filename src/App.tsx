@@ -639,7 +639,7 @@ export default function App() {
                 </button>
               </div>
             )}
-            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} priceAlerts={priceAlerts} onRename={setStockName} onSetAlert={setAlert} />}
+            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} priceAlerts={priceAlerts} pricesByStock={pricesByStock} transactions={transactions} onRename={setStockName} onSetAlert={setAlert} />}
             {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
             {holdings.length === 0 && stockDetails.length === 0 && (
               <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
