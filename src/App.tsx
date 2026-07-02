@@ -32,6 +32,7 @@ import AnnualReport from './components/AnnualReport'
 import DCACalculator from './components/DCACalculator'
 import DRIPCalculator from './components/DRIPCalculator'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
+import HelpModal from './components/HelpModal'
 
 type TabKey = 'assets' | 'holdings' | 'records' | 'news'
 
@@ -63,6 +64,7 @@ export default function App() {
   const [newsDate, setNewsDate] = useState<string | null>(null)
   const [newsLoading, setNewsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [priceAlerts, setPriceAlerts] = useState<Record<string, PriceAlert>>({})
@@ -657,7 +659,13 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700/40">
+        <div className="p-4 border-t border-slate-700/40 space-y-0.5">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            ❓ <span>使用說明</span>
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
@@ -773,6 +781,7 @@ export default function App() {
       </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   )
 }
