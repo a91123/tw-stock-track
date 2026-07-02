@@ -34,7 +34,7 @@ export default function FeeSettingsBar({ settings, onChange }: Props) {
           <select
             value={settings.discount}
             onChange={e => onChange({ ...settings, discount: Number(e.target.value) })}
-            className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             {DISCOUNT_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>

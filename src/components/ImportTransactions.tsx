@@ -163,7 +163,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={loading}
-              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 disabled:opacity-50 transition-colors"
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-teal-500 disabled:opacity-50 transition-colors"
             >
               {loading ? '辨識中…' : '📷 上傳券商截圖（可多選，同頁面捲動截圖請一起選）'}
             </button>
@@ -178,7 +178,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
           <button
             onClick={() => csvInputRef.current?.click()}
             disabled={loading}
-            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 disabled:opacity-50 transition-colors"
+            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-teal-500 disabled:opacity-50 transition-colors"
           >
             📄 匯入 CSV 檔
           </button>
@@ -220,7 +220,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
           )}
 
           {parsed.some(t => t.type === 'dividend') && (
-            <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+            <div className="bg-teal-50 rounded-lg px-3 py-2 text-xs text-teal-700">
               股利（息）：價格欄＝「每股股利」，股數×價格＝實領金額。若只知道總配息金額，股數填 <strong>1</strong>、價格填 <strong>總金額</strong> 即可。
             </div>
           )}
@@ -255,7 +255,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
                           className={`px-2 py-1 rounded font-medium ${
                             tx.type === 'buy' ? 'bg-green-100 text-green-700'
                               : tx.type === 'sell' ? 'bg-red-100 text-red-700'
-                              : 'bg-blue-100 text-blue-700'
+                              : 'bg-teal-100 text-teal-700'
                           }`}
                         >
                           {tx.type === 'buy' ? '買' : tx.type === 'sell' ? '賣' : '息'}
@@ -302,7 +302,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
           <div className="flex gap-2">
             <button
               onClick={confirmAll}
-              className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors"
             >
               加入 {parsed.filter(isValidTx).length} 筆交易
             </button>

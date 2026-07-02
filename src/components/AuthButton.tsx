@@ -11,7 +11,7 @@ export default function AuthButton({ user, syncing, onLogin, onLogout }: Props) 
   if (user) {
     return (
       <div className="flex items-center gap-2">
-        {syncing && <span className="text-xs text-blue-500">同步中…</span>}
+        {syncing && <span className="text-xs text-teal-500">同步中…</span>}
         {user.photoURL && (
           <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />
         )}

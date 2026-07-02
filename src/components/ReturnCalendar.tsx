@@ -180,7 +180,7 @@ export default function ReturnCalendar({ data }: Props) {
               >
                 <span className={`text-xs leading-none ${
                   cell.isToday
-                    ? isIntradayCell ? 'font-bold text-amber-500' : 'font-bold text-blue-600'
+                    ? isIntradayCell ? 'font-bold text-amber-500' : 'font-bold text-teal-600'
                     : 'text-gray-500'
                 }`}>
                   {cell.day}

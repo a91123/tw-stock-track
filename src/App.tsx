@@ -32,7 +32,7 @@ type TabKey = 'assets' | 'holdings' | 'records' | 'news'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'assets', label: '資產', icon: '📊' },
-  { key: 'holdings', label: '庫存', icon: '📦' },
+  { key: 'holdings', label: '持倉', icon: '📦' },
   { key: 'records', label: '紀錄', icon: '📝' },
   { key: 'news', label: '新聞', icon: '📰' },
 ]
@@ -405,7 +405,7 @@ export default function App() {
   // 檢查 auth 狀態中
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-gray-400 text-sm">載入中…</div>
       </div>
     )
@@ -414,14 +414,14 @@ export default function App() {
   // 未登入 → 登入頁
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6">
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6">
         <div className="text-center">
-          <p className="text-3xl font-bold text-gray-900 mb-1">維股利</p>
-          <p className="text-sm text-gray-400">台股損益追蹤器</p>
+          <p className="text-3xl font-bold text-white mb-1">維股利</p>
+          <p className="text-sm text-teal-400">台股損益追蹤器</p>
         </div>
         <button
           onClick={handleLogin}
-          className="flex items-center gap-2.5 px-6 py-3 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors"
+          className="flex items-center gap-2.5 px-6 py-3 bg-white border border-slate-600 rounded-xl text-sm font-medium text-gray-700 hover:bg-slate-50 shadow-lg transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -431,7 +431,7 @@ export default function App() {
           </svg>
           使用 Google 帳號登入
         </button>
-        <p className="text-xs text-gray-300">股價資料來源：台灣證券交易所、櫃買中心</p>
+        <p className="text-xs text-slate-500">股價資料來源：台灣證券交易所、櫃買中心</p>
       </div>
     )
   }
@@ -439,35 +439,35 @@ export default function App() {
   const hasData = transactions.length > 0
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="sticky top-0 z-20">
-        <header className="bg-white border-b border-gray-200">
+        <header className="bg-slate-900">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div>
-                <div className="text-xl font-bold text-gray-900 leading-tight">維股利</div>
-                <div className="text-xs text-gray-400 leading-tight">台股損益 × AI 分析</div>
+                <div className="text-xl font-bold text-white leading-tight">維股利</div>
+                <div className="text-xs text-teal-400 leading-tight">台股損益 × AI 分析</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {syncing && <span className="text-xs text-blue-500">同步中…</span>}
-              {saveError && <span className="text-xs text-red-500" title={saveError}>⚠ {saveError}</span>}
-              {newsSearchLoading && <span className="text-xs text-purple-500">新聞搜尋中…</span>}
+              {syncing && <span className="text-xs text-teal-400">同步中…</span>}
+              {saveError && <span className="text-xs text-red-400" title={saveError}>⚠ {saveError}</span>}
+              {newsSearchLoading && <span className="text-xs text-slate-400">新聞搜尋中…</span>}
               {lastUpdated && !syncing && (
-                <span className="text-xs text-gray-400 hidden sm:inline">
+                <span className="text-xs text-slate-400 hidden sm:inline">
                   更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
               <button
                 onClick={handleRefresh}
                 disabled={loading || !hasData}
-                className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? '更新中…' : '更新股價'}
               </button>
               <button
                 onClick={() => setShowSettings(true)}
-                className="text-lg leading-none text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-lg leading-none text-slate-400 hover:text-white transition-colors"
                 title="設定"
               >
                 ⚙️
@@ -478,7 +478,7 @@ export default function App() {
                 )}
                 <button
                   onClick={handleLogout}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-xs text-slate-400 hover:text-white transition-colors"
                 >
                   登出
                 </button>
@@ -487,7 +487,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 flex">
             {TABS.map(t => (
               <button
@@ -495,7 +495,7 @@ export default function App() {
                 onClick={() => setTab(t.key)}
                 className={`flex-1 sm:flex-none sm:px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   tab === t.key
-                    ? 'border-blue-600 text-blue-600'
+                    ? 'border-teal-600 text-teal-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >

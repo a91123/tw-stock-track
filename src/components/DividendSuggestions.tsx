@@ -83,7 +83,7 @@ export default function DividendSuggestions({ suggestions, onAdd, onDismiss }: P
                   {s.exDate} 除息・{s.sharesHeld.toLocaleString()} 股 × ${s.cashPerShare}
                 </div>
               </div>
-              <span className="text-sm font-semibold text-blue-600 tabular-nums flex-shrink-0">
+              <span className="text-sm font-semibold text-teal-600 tabular-nums flex-shrink-0">
                 +{fmtMoney(s.totalAmount)}
               </span>
             </label>
@@ -94,7 +94,7 @@ export default function DividendSuggestions({ suggestions, onAdd, onDismiss }: P
       <div className="flex items-center justify-between pt-1 border-t border-gray-100">
         <span className="text-xs text-gray-500">
           合計{' '}
-          <span className="font-semibold text-blue-600">+{fmtMoney(totalSelected)} 元</span>
+          <span className="font-semibold text-teal-600">+{fmtMoney(totalSelected)} 元</span>
         </span>
         <div className="flex gap-2">
           <button
@@ -106,7 +106,7 @@ export default function DividendSuggestions({ suggestions, onAdd, onDismiss }: P
           <button
             onClick={handleAdd}
             disabled={selected.size === 0}
-            className="px-4 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-1.5 text-xs font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             加入所選（{selected.size} 筆）
           </button>

@@ -48,13 +48,13 @@ export default function SettingsModal({ onClose }: Props) {
             用於截圖辨識與新聞功能。Key 只儲存在你的瀏覽器，不會上傳。
           </p>
 
-          <details className="bg-blue-50 rounded-lg px-3 py-2">
-            <summary className="text-xs font-semibold text-blue-700 cursor-pointer select-none">
+          <details className="bg-teal-50 rounded-lg px-3 py-2">
+            <summary className="text-xs font-semibold text-teal-700 cursor-pointer select-none">
               📖 如何免費申請 API Key？
             </summary>
             <ol className="mt-2 space-y-2 text-xs text-gray-600 list-none">
               {[
-                <>開啟 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-medium underline">Google AI Studio</a></>,
+                <>開啟 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-teal-600 font-medium underline">Google AI Studio</a></>,
                 <>用 <strong>Google 帳號</strong>登入</>,
                 <>同意服務條款</>,
                 <>點右上角「<strong>建立 API 金鑰</strong>」</>,
@@ -62,7 +62,7 @@ export default function SettingsModal({ onClose }: Props) {
                 <>貼到下方儲存，完成！</>,
               ].map((step, i) => (
                 <li key={i} className="flex gap-2">
-                  <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{i + 1}</span>
+                  <span className="flex-shrink-0 w-5 h-5 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold text-xs">{i + 1}</span>
                   <span>{step}</span>
                 </li>
               ))}
@@ -77,12 +77,12 @@ export default function SettingsModal({ onClose }: Props) {
               onChange={e => setKeyDraft(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
               placeholder={hasKey ? '輸入新 Key 以更換' : '貼上 API Key（AIza 開頭）'}
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
             <button
               onClick={handleSave}
               disabled={!keyDraft.trim()}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+              className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
             >
               {saved ? '已儲存 ✓' : '儲存'}
             </button>

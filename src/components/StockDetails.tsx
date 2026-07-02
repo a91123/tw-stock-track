@@ -39,7 +39,7 @@ function TxSubList({ d }: { d: StockDetail }) {
             <span className={`px-1.5 py-0.5 rounded font-medium ${
               tx.type === 'buy' ? 'bg-green-100 text-green-700'
                 : tx.type === 'sell' ? 'bg-red-100 text-red-700'
-                : 'bg-blue-100 text-blue-700'
+                : 'bg-teal-100 text-teal-700'
             }`}>
               {TYPE_LABEL[tx.type]}
             </span>
@@ -105,7 +105,7 @@ export default function StockDetails({ details, names, onRename }: Props) {
                   </td>
                   <td className="py-3 text-right"><PnL value={d.realizedTradePnL} /></td>
                   <td className="py-3 text-right">
-                    {d.dividendTotal > 0 ? <span className="text-blue-600 font-semibold tabular-nums">+{fmtNum(d.dividendTotal)}</span> : <span className="text-gray-300">—</span>}
+                    {d.dividendTotal > 0 ? <span className="text-teal-600 font-semibold tabular-nums">+{fmtNum(d.dividendTotal)}</span> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="py-3 text-right"><PnL value={d.unrealizedPnL} /></td>
                   <td className="py-3 text-right"><PnL value={d.totalPnL} /></td>
@@ -138,7 +138,7 @@ export default function StockDetails({ details, names, onRename }: Props) {
             </button>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <div className="flex justify-between"><span className="text-gray-400">已實現價差</span><PnL value={d.realizedTradePnL} /></div>
-              <div className="flex justify-between"><span className="text-gray-400">股利</span>{d.dividendTotal > 0 ? <span className="text-blue-600 font-semibold tabular-nums">+{fmtNum(d.dividendTotal)}</span> : <span className="text-gray-300">—</span>}</div>
+              <div className="flex justify-between"><span className="text-gray-400">股利</span>{d.dividendTotal > 0 ? <span className="text-teal-600 font-semibold tabular-nums">+{fmtNum(d.dividendTotal)}</span> : <span className="text-gray-300">—</span>}</div>
               <div className="flex justify-between"><span className="text-gray-400">未實現</span><PnL value={d.unrealizedPnL} /></div>
               <div className="flex justify-between"><span className="text-gray-400">報酬率</span><PnL value={d.returnRate} suffix="%" decimals={2} /></div>
               <div className="flex justify-between col-span-2"><span className="text-gray-400">年化報酬率</span><PnL value={d.annualizedReturn} suffix="%" decimals={1} /></div>

@@ -13,7 +13,7 @@ function fmtDate(s: string) {
 const TYPE_META: Record<string, { label: string; cls: string }> = {
   buy: { label: '買入', cls: 'bg-green-100 text-green-700' },
   sell: { label: '賣出', cls: 'bg-red-100 text-red-700' },
-  dividend: { label: '股利', cls: 'bg-blue-100 text-blue-700' },
+  dividend: { label: '股利', cls: 'bg-teal-100 text-teal-700' },
 }
 
 export default function TransactionList({ transactions, onDelete }: Props) {

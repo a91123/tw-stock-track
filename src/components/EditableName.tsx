@@ -25,7 +25,7 @@ export default function EditableName({ code, name, onRename }: Props) {
         onBlur={save}
         onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
         placeholder="輸入名稱"
-        className="w-20 px-1 py-0.5 text-xs font-normal border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-20 px-1 py-0.5 text-xs font-normal border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
         onClick={e => e.stopPropagation()}
       />
     )
@@ -33,7 +33,7 @@ export default function EditableName({ code, name, onRename }: Props) {
   return (
     <button
       onClick={e => { e.stopPropagation(); setVal(name ?? ''); setEditing(true) }}
-      className={`text-xs font-normal ${name ? 'text-gray-500' : 'text-blue-400'} hover:text-blue-600`}
+      className={`text-xs font-normal ${name ? 'text-gray-500' : 'text-teal-400'} hover:text-teal-600`}
       title="點擊編輯名稱"
     >
       {name || '＋命名'}

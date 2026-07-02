@@ -31,7 +31,7 @@ function NewsCard({ item }: { item: NewsItem }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 text-sm font-medium text-gray-900 leading-snug hover:text-blue-600 transition-colors"
+          className="flex-1 text-sm font-medium text-gray-900 leading-snug hover:text-teal-600 transition-colors"
         >
           {item.title}
           <span className="ml-1 text-gray-400 text-xs">↗</span>
@@ -44,8 +44,8 @@ function NewsCard({ item }: { item: NewsItem }) {
       </div>
       <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.summary}</p>
       {item.impact && (
-        <div className="mt-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
-          <p className="text-xs text-blue-700 leading-relaxed">
+        <div className="mt-1.5 px-2.5 py-1.5 bg-teal-50 rounded-lg">
+          <p className="text-xs text-teal-700 leading-relaxed">
             <span className="font-medium">潛在影響：</span>{item.impact}
           </p>
         </div>
@@ -94,12 +94,12 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             placeholder="例：2330 或 台積電"
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <button
             onClick={handleSearch}
             disabled={searching || !query.trim() || !apiKey}
-            className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {searching ? '搜尋中…' : '搜尋'}
           </button>
@@ -137,7 +137,7 @@ export default function StockNews({ apiKey, autoNews, stockNames, newsDate, news
         <button
           onClick={onRefresh}
           disabled={newsLoading}
-          className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 transition-colors ml-auto"
+          className="text-xs text-teal-500 hover:text-teal-700 disabled:opacity-40 transition-colors ml-auto"
         >
           {newsLoading ? '更新中…' : '重新整理'}
         </button>

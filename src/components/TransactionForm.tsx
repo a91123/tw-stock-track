@@ -51,7 +51,7 @@ export default function TransactionForm({ onAdd }: Props) {
               value={stockCode}
               onChange={e => setStockCode(e.target.value)}
               placeholder="例如: 2330"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
               required
             />
           </div>
@@ -80,7 +80,7 @@ export default function TransactionForm({ onAdd }: Props) {
                 type="button"
                 onClick={() => setType('dividend')}
                 className={`flex-1 text-sm font-medium transition-colors border-l border-gray-200 ${
-                  type === 'dividend' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  type === 'dividend' ? 'bg-teal-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 股利
@@ -95,7 +95,7 @@ export default function TransactionForm({ onAdd }: Props) {
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
             required
           />
         </div>
@@ -113,7 +113,7 @@ export default function TransactionForm({ onAdd }: Props) {
               placeholder="例如: 1000"
               min="1"
               step="1"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
               required
             />
           </div>
@@ -128,14 +128,14 @@ export default function TransactionForm({ onAdd }: Props) {
               placeholder="例如: 550.00"
               min="0.01"
               step="0.01"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
               required
             />
           </div>
         </div>
 
         {type === 'dividend' && (
-          <p className="text-xs text-blue-600 -mt-1">
+          <p className="text-xs text-teal-600 -mt-1">
             股利：股數×每股股利＝實領金額。只知道總金額的話，股數填 1、每股股利填總金額即可。
           </p>
         )}
@@ -147,14 +147,14 @@ export default function TransactionForm({ onAdd }: Props) {
             value={note}
             onChange={e => setNote(e.target.value)}
             placeholder="備註"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
         <button
           ref={submitRef}
           type="submit"
-          className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          className="w-full py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:bg-blue-800 transition-colors"
         >
           新增
         </button>
