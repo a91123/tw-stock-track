@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { fetchStockPrices, clearPriceCache } from '../services/stockPrices'
 import { fetchDividends, clearDividendCache } from '../services/dividends'
-import { DailyPortfolioData } from '../types'
+import { Transaction, StockDetail } from '../types'
+import { getSharesOnDate } from '../utils/pnl'
 
 interface Props {
   firstBuyDate: string
-  portfolioReturn: number          // all-time total return (已含股利)
-  dailyPnL?: DailyPortfolioData[]  // 供計算特定區間組合報酬
+  portfolioReturn: number                              // all-time total return (已含股利)
+  pricesByStock: Map<string, Map<string, number>>     // stockCode → date → close
+  transactions: Transaction[]
+  holdings: StockDetail[]                             // 目前持倉（含 currentPrice）
 }
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'all'
@@ -37,7 +40,6 @@ function subtractDays(days: number): string {
   return toDateStr(d)
 }
 
-/** 取兩個 YYYY-MM-DD 字串中較晚者 */
 function maxDate(a: string, b: string): string {
   return a >= b ? a : b
 }
@@ -65,20 +67,54 @@ async function fetchTotalReturn(code: string, fromDate: string): Promise<Benchma
   }
 }
 
-/** 從 dailyPnL 計算特定區間的組合報酬（含股利 / 已實現損益） */
-function calcPortfolioReturn(dailyPnL: DailyPortfolioData[], fromDate: string): number | null {
-  if (!dailyPnL || dailyPnL.length === 0) return null
-  const sorted = [...dailyPnL].sort((a, b) => a.date.localeCompare(b.date))
-  const startEntry = sorted.find(e => e.date >= fromDate)
-  const endEntry = sorted[sorted.length - 1]
-  if (!startEntry || !endEntry || startEntry === endEntry) return null
-  if (startEntry.portfolioValue <= 0) return null
-  // periodPnL = 區間內增加的 P&L（含未實現 + 已實現 + 股利）
-  const periodPnL = endEntry.totalPnL - startEntry.totalPnL
-  return (periodPnL / startEntry.portfolioValue) * 100
+/**
+ * 計算特定區間的組合報酬：
+ * - 對每檔現持股：取 fromDate 當時的持股數 × 當時股價 = 期初市值
+ * - 期末市值 = 現在持股數 × 現價
+ * - return = (期末 - 期初) / 期初
+ *
+ * 不含期間內新增買進的貢獻（它們在 fromDate 持股數 = 0 所以自動排除），
+ * 也不含期間內賣掉的股票（已不在 holdings 內，自動排除）。
+ * 這是「現有持股從 fromDate 至今的純股價報酬」。
+ */
+function calcPortfolioReturn(
+  pricesByStock: Map<string, Map<string, number>>,
+  transactions: Transaction[],
+  holdings: StockDetail[],
+  fromDate: string,
+): number | null {
+  let startValue = 0
+  let endValue = 0
+
+  for (const h of holdings) {
+    if (h.currentPrice === null || h.totalShares <= 0) continue
+    const priceMap = pricesByStock.get(h.stockCode)
+    if (!priceMap) continue
+
+    // 找 fromDate 當日或之後最近的有價格日
+    const dates = [...priceMap.keys()].sort()
+    const startDateKey = dates.find(d => d >= fromDate)
+    if (!startDateKey) continue
+
+    const sharesOnDate = getSharesOnDate(transactions, h.stockCode, fromDate)
+    if (sharesOnDate <= 0) continue
+
+    const startPrice = priceMap.get(startDateKey)!
+    startValue += sharesOnDate * startPrice
+    endValue += h.totalShares * h.currentPrice
+  }
+
+  if (startValue <= 0) return null
+  return ((endValue - startValue) / startValue) * 100
 }
 
-export default function BenchmarkComparison({ firstBuyDate, portfolioReturn, dailyPnL }: Props) {
+export default function BenchmarkComparison({
+  firstBuyDate,
+  portfolioReturn,
+  pricesByStock,
+  transactions,
+  holdings,
+}: Props) {
   const [period, setPeriod] = useState<Period>('all')
   const [benchmarkCode, setBenchmarkCode] = useState(DEFAULT_CODE)
   const [inputCode, setInputCode] = useState('')
@@ -131,7 +167,7 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn, dai
   const fromDate = getFromDate()
   const activePortfolioReturn = period === 'all'
     ? portfolioReturn
-    : (dailyPnL ? calcPortfolioReturn(dailyPnL, fromDate) : null)
+    : calcPortfolioReturn(pricesByStock, transactions, holdings, fromDate)
 
   const benchmarkReturn = result?.returnPct ?? null
   const diff = (benchmarkReturn !== null && activePortfolioReturn !== null)
