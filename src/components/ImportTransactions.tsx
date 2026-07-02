@@ -11,6 +11,11 @@ import { parseCsv } from '../utils/csv'
 interface Props {
   onAddMany: (txs: Omit<Transaction, 'id'>[]) => void
   onOpenSettings: () => void
+  existingTransactions: Transaction[]
+}
+
+function txFingerprint(t: { stockCode: string; date: string; type: string; shares: number; price: number }) {
+  return `${t.stockCode}|${t.date}|${t.type}|${t.shares}|${t.price}`
 }
 
 const MAX_IMAGES = 8
@@ -38,7 +43,8 @@ function isValidTx(tx: ParsedTx): boolean {
   )
 }
 
-export default function ImportTransactions({ onAddMany, onOpenSettings }: Props) {
+export default function ImportTransactions({ onAddMany, onOpenSettings, existingTransactions }: Props) {
+  const existingSet = new Set(existingTransactions.map(txFingerprint))
   const imageInputRef = useRef<HTMLInputElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
   const [apiKey] = useState(() => loadGeminiKey())
@@ -66,11 +72,14 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
         ...t,
         stockCode: String(t.stockCode).trim().toUpperCase(),
       }))
-      if (txs.length === 0) {
-        setError('沒有辨識到任何交易紀錄，請換更清楚的截圖')
+      const dupeCount = txs.filter(t => existingSet.has(txFingerprint(t))).length
+      const fresh = txs.filter(t => !existingSet.has(txFingerprint(t)))
+      if (fresh.length === 0 && dupeCount > 0) {
+        setError(`辨識到 ${dupeCount} 筆交易，但全部都已存在，不需重複匯入`)
       } else {
+        if (dupeCount > 0) setNotice(`已過濾 ${dupeCount} 筆重複紀錄`)
         setParsedSource('截圖匯入')
-        setParsed(txs)
+        setParsed(fresh.length > 0 ? fresh : txs)
       }
     } catch (err) {
       Sentry.captureException(err, { tags: { feature: 'screenshot-import' } })
@@ -94,9 +103,14 @@ export default function ImportTransactions({ onAddMany, onOpenSettings }: Props)
         setError('CSV 裡沒有可辨識的交易資料，請確認格式（代碼,類型,日期,股數,價格）')
         return
       }
-      if (skipped > 0) setNotice(`已略過 ${skipped} 列無法解析的資料`)
+      const dupeCount = txs.filter(t => existingSet.has(txFingerprint(t))).length
+      const fresh = txs.filter(t => !existingSet.has(txFingerprint(t)))
+      const notices = []
+      if (skipped > 0) notices.push(`略過 ${skipped} 列無法解析`)
+      if (dupeCount > 0) notices.push(`過濾 ${dupeCount} 筆重複`)
+      if (notices.length > 0) setNotice(notices.join('，'))
       setParsedSource('CSV 匯入')
-      setParsed(txs)
+      setParsed(fresh.length > 0 ? fresh : txs)
     } catch (err) {
       Sentry.captureException(err, { tags: { feature: 'csv-import' } })
       setError('CSV 讀取失敗，請確認檔案內容')

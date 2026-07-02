@@ -29,6 +29,7 @@ import { fetchDividends, clearDividendCache } from './services/dividends'
 import AllocationChart from './components/AllocationChart'
 import BenchmarkComparison from './components/BenchmarkComparison'
 import AnnualReport from './components/AnnualReport'
+import DCACalculator from './components/DCACalculator'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 type TabKey = 'assets' | 'holdings' | 'records' | 'news'
@@ -64,6 +65,7 @@ export default function App() {
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [priceAlerts, setPriceAlerts] = useState<Record<string, PriceAlert>>({})
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('ui-dark') === 'true')
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -464,7 +466,7 @@ export default function App() {
   const hasData = transactions.length > 0
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50" data-dark={isDark ? 'true' : undefined}>
       <div className="sticky top-0 z-20">
         <header className="bg-slate-900">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
@@ -489,6 +491,13 @@ export default function App() {
                 className="px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? '更新中…' : '更新股價'}
+              </button>
+              <button
+                onClick={() => { setIsDark(d => { localStorage.setItem('ui-dark', String(!d)); return !d }) }}
+                className="text-base leading-none text-slate-400 hover:text-white transition-colors"
+                title={isDark ? '切換亮色' : '切換深色'}
+              >
+                {isDark ? '☀️' : '🌙'}
               </button>
               <button
                 onClick={() => setShowSettings(true)}
@@ -582,6 +591,7 @@ export default function App() {
               />
             )}
             <AnnualReport transactions={transactions} feeSettings={feeSettings} stockNames={stockNames} />
+            <DCACalculator />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             <PortfolioAnalysis
@@ -649,7 +659,7 @@ export default function App() {
               </div>
             )}
             {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
-            <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} />
+            <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} existingTransactions={transactions} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
               <TransactionForm onAdd={addTransaction} />
               <TransactionList transactions={transactions} stockNames={stockNames} onDelete={deleteTransaction} />
