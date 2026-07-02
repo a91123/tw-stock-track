@@ -43,12 +43,13 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
       .finally(() => setLoading(false))
   }, [firstBuyDate, benchmarkCode])
 
-  function handlePK() {
+  function handleCompare() {
     const code = inputCode.trim().toUpperCase()
     if (!code) return
     setBenchmarkCode(code)
     setInputCode('')
     setBenchmarkReturn(null)
+    setLoading(true)
   }
 
   const diff = benchmarkReturn !== null ? portfolioReturn - benchmarkReturn : null
@@ -76,6 +77,8 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
         <div className="text-xs text-gray-400">載入中…</div>
       ) : error ? (
         <div className="text-xs text-red-400">找不到 {benchmarkCode} 資料</div>
+      ) : benchmarkReturn === null ? (
+        <div className="text-xs text-gray-400">查無 {benchmarkCode} 資料</div>
       ) : (
         <div className="flex items-stretch gap-3">
           <div className="flex-1 bg-teal-50 rounded-lg p-3 text-center">
@@ -84,7 +87,7 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
           </div>
           <div className="flex-1 bg-slate-50 rounded-lg p-3 text-center">
             <div className="text-xs text-gray-500 mb-1">{benchmarkCode} 含股利</div>
-            <div className={`text-xl font-bold ${color(benchmarkReturn!)}`}>{fmt(benchmarkReturn!)}</div>
+            <div className={`text-xl font-bold ${color(benchmarkReturn)}`}>{fmt(benchmarkReturn)}</div>
           </div>
           {diff !== null && (
             <div className={`flex-1 rounded-lg p-3 text-center ${diff >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
@@ -100,16 +103,16 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
           type="text"
           value={inputCode}
           onChange={e => setInputCode(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handlePK()}
-          placeholder="輸入股票代碼 PK（如 2330、00919）"
+          onKeyDown={e => e.key === 'Enter' && handleCompare()}
+          placeholder="輸入股票代碼對比（如 2330、00919）"
           className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-400"
         />
         <button
-          onClick={handlePK}
+          onClick={handleCompare}
           disabled={!inputCode.trim()}
           className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-40 transition-colors"
         >
-          PK
+          對比
         </button>
       </div>
       <p className="text-xs text-gray-300 mt-1.5">以首筆買入日為基準，資料快取 7 天</p>

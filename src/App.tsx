@@ -30,6 +30,7 @@ import AllocationChart from './components/AllocationChart'
 import BenchmarkComparison from './components/BenchmarkComparison'
 import AnnualReport from './components/AnnualReport'
 import DCACalculator from './components/DCACalculator'
+import DRIPCalculator from './components/DRIPCalculator'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 type TabKey = 'assets' | 'holdings' | 'records' | 'news'
@@ -429,6 +430,10 @@ export default function App() {
     handleCheckDividends()
   }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  function toggleDark() {
+    setIsDark(d => { localStorage.setItem('ui-dark', String(!d)); return !d })
+  }
+
   // 檢查 auth 狀態中
   if (authLoading) {
     return (
@@ -465,69 +470,289 @@ export default function App() {
 
   const hasData = transactions.length > 0
 
-  return (
-    <div className="min-h-screen bg-slate-50" data-dark={isDark ? 'true' : undefined}>
-      <div className="sticky top-0 z-20">
-        <header className="bg-slate-900">
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="text-xl font-bold text-white leading-tight">維股利</div>
-                <div className="text-xs text-teal-400 leading-tight">台股損益 × AI 分析</div>
+  const tabContent = (
+    <>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+          <span className="mt-0.5">⚠</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {triggeredAlerts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm flex flex-col gap-1">
+          {triggeredAlerts.map(h => {
+            const a = priceAlerts[h.stockCode]
+            const hit = a.target && h.currentPrice !== null && h.currentPrice >= a.target
+              ? `已達目標價 ${a.target}` : `已觸及停損價 ${a.stopLoss}`
+            return (
+              <div key={h.stockCode} className="flex items-center gap-2">
+                <span>{a.target && h.currentPrice !== null && h.currentPrice >= a.target ? '🎯' : '🛑'}</span>
+                <span className="font-medium">{h.stockCode}</span>
+                <span className="text-amber-700">{hit}（現價 {h.currentPrice}）</span>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {syncing && <span className="text-xs text-teal-400">同步中…</span>}
-              {saveError && <span className="text-xs text-red-400" title={saveError}>⚠ {saveError}</span>}
-              {newsSearchLoading && <span className="text-xs text-slate-400">新聞搜尋中…</span>}
-              {lastUpdated && !syncing && (
-                <span className="text-xs text-slate-400 hidden sm:inline">
-                  更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-                </span>
+            )
+          })}
+        </div>
+      )}
+
+      {!hasData && tab !== 'records' && (
+        <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
+          <p className="text-4xl mb-3">📈</p>
+          <p className="text-sm font-medium text-gray-600 mb-1">還沒有資料</p>
+          <p className="text-xs">到「📝 紀錄」分頁新增第一筆交易，這裡就會顯示損益分析</p>
+        </div>
+      )}
+
+      {tab === 'assets' && hasData && (
+        <>
+          <PortfolioSummary summary={summary} loading={loading} />
+          <AnnualizedReturn
+            value={annualized.value}
+            periodReturn={summary.returnRate}
+            holdingDays={annualized.holdingDays}
+            incompletePrices={annualized.incompletePrices}
+          />
+          {holdings.length > 0 && <AllocationChart holdings={holdings} names={stockNames} />}
+          {annualized.holdingDays > 0 && (
+            <BenchmarkComparison
+              firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
+              portfolioReturn={summary.returnRate}
+            />
+          )}
+          <AnnualReport transactions={transactions} feeSettings={feeSettings} stockNames={stockNames} />
+          <DCACalculator />
+          <DRIPCalculator />
+          {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
+          {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
+          <PortfolioAnalysis
+            apiKey={loadGeminiKey()}
+            ctx={{
+              holdings: holdings.map(h => ({
+                code: h.stockCode,
+                name: stockNames[h.stockCode],
+                shares: h.totalShares,
+                avgCost: h.avgCost,
+                currentPrice: h.currentPrice,
+                unrealizedPnL: h.unrealizedPnL,
+                returnRate: h.returnRate,
+              })) satisfies PortfolioContext['holdings'],
+              totalValue: summary.portfolioValue,
+              totalPnL: summary.totalPnL,
+              returnRate: summary.returnRate,
+              realizedPnL: summary.realizedPnL,
+            }}
+          />
+        </>
+      )}
+
+      {tab === 'holdings' && hasData && (
+        <>
+          {checkingDividends ? (
+            <div className="text-xs text-gray-400 text-right">配息查詢中…</div>
+          ) : dividendSuggestions && dividendSuggestions.length > 0 ? (
+            <DividendSuggestions
+              suggestions={dividendSuggestions}
+              onAdd={txs => { addTransactions(txs); setDividendSuggestions(null) }}
+              onDismiss={() => setDividendSuggestions(null)}
+            />
+          ) : (
+            <div className="flex items-center justify-end gap-2">
+              {dividendSuggestions !== null && (
+                <span className="text-xs text-gray-400">✓ 配息紀錄都已入帳</span>
               )}
               <button
-                onClick={handleRefresh}
-                disabled={loading || !hasData}
-                className="px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                onClick={() => handleCheckDividends(true)}
+                disabled={checkingDividends}
+                className="text-xs text-gray-400 hover:text-teal-600 disabled:opacity-40 transition-colors"
               >
-                {loading ? '更新中…' : '更新股價'}
+                重新查詢
               </button>
+            </div>
+          )}
+          {holdings.length > 0 && (
+            <Holdings
+              holdings={holdings}
+              isRealtime={realtimePrices.size > 0}
+              names={stockNames}
+              priceAlerts={priceAlerts}
+              pricesByStock={pricesByStock}
+              transactions={transactions}
+              onRename={setStockName}
+              onSetAlert={setAlert}
+            />
+          )}
+          {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
+          {holdings.length === 0 && stockDetails.length === 0 && (
+            <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
+              目前沒有持倉資料
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'records' && (
+        <>
+          {!hasData && (
+            <div className="bg-white rounded-xl border border-dashed border-gray-200 py-10 text-center text-gray-400">
+              <p className="text-4xl mb-3">📈</p>
+              <p className="text-sm font-medium text-gray-600 mb-1">開始追蹤你的台股損益</p>
+              <p className="text-xs">新增第一筆買入紀錄，系統會自動抓取歷史股價</p>
+            </div>
+          )}
+          {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
+          <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} existingTransactions={transactions} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+            <TransactionForm onAdd={addTransaction} />
+            <TransactionList transactions={transactions} stockNames={stockNames} onDelete={deleteTransaction} />
+          </div>
+        </>
+      )}
+
+      {/* 新聞：保持 mounted 避免切 tab 中斷搜尋 */}
+      <div className={tab !== 'news' ? 'hidden' : ''}>
+        <StockNews
+          apiKey={loadGeminiKey()}
+          autoNews={autoNews}
+          stockNames={stockNames}
+          newsDate={newsDate}
+          newsLoading={newsLoading}
+          onSearch={handleNewsSearch}
+          onSearchingChange={setNewsSearchLoading}
+          onRefresh={handleRefreshNews}
+        />
+      </div>
+    </>
+  )
+
+  return (
+    <div className="min-h-screen bg-slate-50 sm:flex" data-dark={isDark ? 'true' : undefined}>
+
+      {/* ── 桌機側邊欄 ────────────────────────────── */}
+      <aside className="hidden sm:flex sm:flex-col w-52 shrink-0 sticky top-0 h-screen bg-slate-900 z-20 overflow-y-auto">
+        <div className="px-5 py-5 border-b border-slate-700/40">
+          <div className="text-xl font-bold text-white leading-tight">維股利</div>
+          <div className="text-xs text-teal-400 leading-tight">台股損益 × AI 分析</div>
+        </div>
+
+        <nav className="flex-1 px-3 py-3 space-y-0.5">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? 'bg-white/10 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span className="text-base">{t.icon}</span>
+              <span className="flex-1 text-left">{t.label}</span>
+              {tab === t.key && (
+                <span className="w-1 h-4 bg-teal-400 rounded-full shrink-0" />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-700/40 space-y-3">
+          {(syncing || saveError || newsSearchLoading) && (
+            <div className="text-xs space-y-1">
+              {syncing && <div className="text-teal-400">同步中…</div>}
+              {saveError && <div className="text-red-400" title={saveError}>⚠ 同步失敗</div>}
+              {newsSearchLoading && <div className="text-slate-400">新聞搜尋中…</div>}
+            </div>
+          )}
+          {lastUpdated && !syncing && (
+            <div className="text-xs text-slate-500">
+              更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={loading || !hasData}
+            className="w-full py-2 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? '更新中…' : '更新股價'}
+          </button>
+          <div className="flex items-center gap-2 pt-1">
+            {user.photoURL && (
+              <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full shrink-0" />
+            )}
+            <span className="text-xs text-slate-400 truncate flex-1 min-w-0">
+              {user.displayName ?? user.email}
+            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={() => { setIsDark(d => { localStorage.setItem('ui-dark', String(!d)); return !d }) }}
-                className="text-base leading-none text-slate-400 hover:text-white transition-colors"
+                onClick={toggleDark}
+                className="text-slate-400 hover:text-white transition-colors"
                 title={isDark ? '切換亮色' : '切換深色'}
               >
                 {isDark ? '☀️' : '🌙'}
               </button>
               <button
                 onClick={() => setShowSettings(true)}
-                className="text-lg leading-none text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors"
                 title="設定"
               >
                 ⚙️
               </button>
-              <div className="flex items-center gap-2">
-                {user.photoURL && (
-                  <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />
+              <button
+                onClick={handleLogout}
+                className="text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                登出
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── 內容區（手機：全寬；桌機：flex-1）────── */}
+      <div className="flex-1 min-w-0">
+
+        {/* 手機 header + tabs */}
+        <div className="sm:hidden sticky top-0 z-20">
+          <header className="bg-slate-900">
+            <div className="px-3 py-3 flex items-center justify-between gap-2">
+              <div className="shrink-0">
+                <div className="text-lg font-bold text-white leading-tight">維股利</div>
+                <div className="text-xs text-teal-400 leading-tight">台股損益 × AI 分析</div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {syncing && <span className="text-xs text-teal-400">同步中…</span>}
+                {saveError && <span className="text-xs text-red-400">⚠</span>}
+                {lastUpdated && !syncing && (
+                  <span className="text-xs text-slate-400">
+                    {lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 )}
                 <button
-                  onClick={handleLogout}
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
+                  onClick={handleRefresh}
+                  disabled={loading || !hasData}
+                  className="px-3 py-1.5 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 transition-colors"
                 >
+                  {loading ? '更新中…' : '更新股價'}
+                </button>
+                <button onClick={toggleDark} className="text-slate-400 hover:text-white transition-colors">
+                  {isDark ? '☀️' : '🌙'}
+                </button>
+                <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-white transition-colors">
+                  ⚙️
+                </button>
+                {user.photoURL && <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" />}
+                <button onClick={handleLogout} className="text-xs text-slate-400 hover:text-white transition-colors">
                   登出
                 </button>
               </div>
             </div>
-          </div>
-        </header>
-
-        <div className="bg-white border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 flex">
+          </header>
+          <div className="bg-white border-b border-slate-200 flex">
             {TABS.map(t => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex-1 sm:flex-none sm:px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                   tab === t.key
                     ? 'border-teal-600 text-teal-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -538,152 +763,15 @@ export default function App() {
             ))}
           </div>
         </div>
+
+        <main className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
+          {tabContent}
+        </main>
+
+        <footer className="text-center py-6 text-xs text-gray-300">
+          股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議
+        </footer>
       </div>
-
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
-            <span className="mt-0.5">⚠</span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        {triggeredAlerts.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm flex flex-col gap-1">
-            {triggeredAlerts.map(h => {
-              const a = priceAlerts[h.stockCode]
-              const hit = a.target && h.currentPrice !== null && h.currentPrice >= a.target ? `已達目標價 ${a.target}` : `已觸及停損價 ${a.stopLoss}`
-              return (
-                <div key={h.stockCode} className="flex items-center gap-2">
-                  <span>{a.target && h.currentPrice !== null && h.currentPrice >= a.target ? '🎯' : '🛑'}</span>
-                  <span className="font-medium">{h.stockCode}</span>
-                  <span className="text-amber-700">{hit}（現價 {h.currentPrice}）</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {!hasData && tab !== 'records' && (
-          <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
-            <p className="text-4xl mb-3">📈</p>
-            <p className="text-sm font-medium text-gray-600 mb-1">還沒有資料</p>
-            <p className="text-xs">到「📝 紀錄」分頁新增第一筆交易，這裡就會顯示損益分析</p>
-          </div>
-        )}
-
-        {tab === 'assets' && hasData && (
-          <>
-            <PortfolioSummary summary={summary} loading={loading} />
-            <AnnualizedReturn
-              value={annualized.value}
-              periodReturn={summary.returnRate}
-              holdingDays={annualized.holdingDays}
-              incompletePrices={annualized.incompletePrices}
-            />
-            {holdings.length > 0 && (
-              <AllocationChart holdings={holdings} names={stockNames} />
-            )}
-            {annualized.holdingDays > 0 && (
-              <BenchmarkComparison
-                firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
-                portfolioReturn={summary.returnRate}
-              />
-            )}
-            <AnnualReport transactions={transactions} feeSettings={feeSettings} stockNames={stockNames} />
-            <DCACalculator />
-            {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
-            {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
-            <PortfolioAnalysis
-              apiKey={loadGeminiKey()}
-              ctx={{
-                holdings: holdings.map(h => ({
-                  code: h.stockCode,
-                  name: stockNames[h.stockCode],
-                  shares: h.totalShares,
-                  avgCost: h.avgCost,
-                  currentPrice: h.currentPrice,
-                  unrealizedPnL: h.unrealizedPnL,
-                  returnRate: h.returnRate,
-                })) satisfies PortfolioContext['holdings'],
-                totalValue: summary.portfolioValue,
-                totalPnL: summary.totalPnL,
-                returnRate: summary.returnRate,
-                realizedPnL: summary.realizedPnL,
-              }}
-            />
-          </>
-        )}
-
-        {tab === 'holdings' && hasData && (
-          <>
-            {checkingDividends ? (
-              <div className="text-xs text-gray-400 text-right">配息查詢中…</div>
-            ) : dividendSuggestions && dividendSuggestions.length > 0 ? (
-              <DividendSuggestions
-                suggestions={dividendSuggestions}
-                onAdd={txs => { addTransactions(txs); setDividendSuggestions(null) }}
-                onDismiss={() => setDividendSuggestions(null)}
-              />
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                {dividendSuggestions !== null && (
-                  <span className="text-xs text-gray-400">✓ 配息紀錄都已入帳</span>
-                )}
-                <button
-                  onClick={() => handleCheckDividends(true)}
-                  disabled={checkingDividends}
-                  className="text-xs text-gray-400 hover:text-teal-600 disabled:opacity-40 transition-colors"
-                >
-                  重新查詢
-                </button>
-              </div>
-            )}
-            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} priceAlerts={priceAlerts} pricesByStock={pricesByStock} transactions={transactions} onRename={setStockName} onSetAlert={setAlert} />}
-            {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
-            {holdings.length === 0 && stockDetails.length === 0 && (
-              <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
-                目前沒有持倉資料
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'records' && (
-          <>
-            {!hasData && (
-              <div className="bg-white rounded-xl border border-dashed border-gray-200 py-10 text-center text-gray-400">
-                <p className="text-4xl mb-3">📈</p>
-                <p className="text-sm font-medium text-gray-600 mb-1">開始追蹤你的台股損益</p>
-                <p className="text-xs">新增第一筆買入紀錄，系統會自動抓取歷史股價</p>
-              </div>
-            )}
-            {hasData && <FeeSettingsBar settings={feeSettings} onChange={updateFeeSettings} />}
-            <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} existingTransactions={transactions} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-              <TransactionForm onAdd={addTransaction} />
-              <TransactionList transactions={transactions} stockNames={stockNames} onDelete={deleteTransaction} />
-            </div>
-          </>
-        )}
-        {/* 新聞：保持 mounted 避免切 tab 中斷搜尋 */}
-        <div className={tab !== 'news' ? 'hidden' : ''}>
-          <StockNews
-            apiKey={loadGeminiKey()}
-            autoNews={autoNews}
-            stockNames={stockNames}
-            newsDate={newsDate}
-            newsLoading={newsLoading}
-            onSearch={handleNewsSearch}
-            onSearchingChange={setNewsSearchLoading}
-            onRefresh={handleRefreshNews}
-          />
-        </div>
-      </main>
-
-      <footer className="text-center py-6 text-xs text-gray-300">
-        股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議
-      </footer>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>

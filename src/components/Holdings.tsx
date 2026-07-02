@@ -83,7 +83,7 @@ function AlertEditor({ code, alert, onSave, onClose }: {
 
 export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert }: Props) {
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
-  const [expandedChart, setExpandedChart] = useState<string | null>(null)
+  const [expandedChart, setExpandedChart] = useState<string | null>(holdings[0]?.stockCode ?? null)
 
   if (holdings.length === 0) return null
 
@@ -124,10 +124,12 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setExpandedChart(expandedChart === h.stockCode ? null : h.stockCode)}
-                          className="font-bold text-gray-900 hover:text-teal-600 transition-colors"
-                          title="點擊查看走勢圖"
+                          className="flex items-center gap-1 font-bold text-gray-900 hover:text-teal-600 transition-colors"
                         >
                           {h.stockCode}
+                          <span className="text-xs font-normal text-gray-400">
+                            {expandedChart === h.stockCode ? '▲' : '📈'}
+                          </span>
                         </button>
                         <EditableName code={h.stockCode} name={names[h.stockCode]} onRename={onRename} />
                       </div>
@@ -231,9 +233,9 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={() => setExpandedChart(expandedChart === h.stockCode ? null : h.stockCode)}
-                  className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
+                  className="text-xs text-teal-600 hover:text-teal-800 transition-colors font-medium"
                 >
-                  {expandedChart === h.stockCode ? '▲ 收起圖表' : '📈 走勢圖'}
+                  {expandedChart === h.stockCode ? '▲ 收起走勢圖' : '📈 走勢圖'}
                 </button>
                 <button
                   onClick={() => setEditingAlert(editingAlert === h.stockCode ? null : h.stockCode)}

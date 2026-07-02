@@ -31,40 +31,55 @@
 /* Theme C: 專業 (slate-900 + teal) — DEFAULT, no overrides needed */
 
 /* ===== Dark Mode ===== */
-[data-dark="true"] .bg-white { background-color: #1e293b; }
-[data-dark="true"] .bg-slate-50,
-[data-dark="true"] .bg-gray-50 { background-color: #0f172a; }
-[data-dark="true"] .bg-gray-100 { background-color: #334155; }
-[data-dark="true"] .bg-slate-800 { background-color: #020617; }
-[data-dark="true"] .hover\:bg-gray-50:hover { background-color: #1e293b; }
-[data-dark="true"] .hover\:bg-gray-100:hover { background-color: #334155; }
+/* 三層結構：頁面底色 → 卡片 → 卡片內格 */
 
-[data-dark="true"] .bg-teal-50 { background-color: #0d2e2a; }
-[data-dark="true"] .bg-green-50 { background-color: #052e16; }
-[data-dark="true"] .bg-red-50 { background-color: #2d0a0a; }
-[data-dark="true"] .bg-amber-50 { background-color: #2d1a03; }
-[data-dark="true"] .bg-slate-50 { background-color: #0f172a; }
+/* 頁面底色（最深） */
+[data-dark="true"] .bg-gray-50 { background-color: #0d1421; }
 
-[data-dark="true"] .text-gray-900 { color: #f1f5f9; }
-[data-dark="true"] .text-gray-800 { color: #e2e8f0; }
-[data-dark="true"] .text-gray-700 { color: #cbd5e1; }
-[data-dark="true"] .text-gray-600 { color: #94a3b8; }
-[data-dark="true"] .text-gray-500 { color: #64748b; }
-[data-dark="true"] .text-gray-400 { color: #475569; }
-[data-dark="true"] .text-gray-300 { color: #334155; }
+/* 卡片表面（中層） */
+[data-dark="true"] .bg-white { background-color: #162032; }
 
-[data-dark="true"] .border-gray-50 { border-color: #1e293b; }
-[data-dark="true"] .border-gray-100 { border-color: #334155; }
-[data-dark="true"] .border-gray-200 { border-color: #475569; }
-[data-dark="true"] .border-gray-300 { border-color: #64748b; }
-[data-dark="true"] .border-dashed { border-color: #334155; }
+/* 卡片內格 / 次要表面（比卡片略亮，製造層次） */
+[data-dark="true"] .bg-slate-50 { background-color: #1e3048; }
+[data-dark="true"] .bg-gray-100 { background-color: #1e3048; }
+[data-dark="true"] .bg-slate-800 { background-color: #070e1a; }
 
-[data-dark="true"] .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
+/* Hover 狀態 */
+[data-dark="true"] .hover\:bg-gray-50:hover { background-color: #1e3048; }
+[data-dark="true"] .hover\:bg-gray-100:hover { background-color: #263d56; }
 
+/* 品牌色格子（保留色調，但加深避免過亮） */
+[data-dark="true"] .bg-teal-50 { background-color: #0c2a28; }
+[data-dark="true"] .bg-green-50 { background-color: #0d2b1c; }
+[data-dark="true"] .bg-red-50 { background-color: #2b1212; }
+[data-dark="true"] .bg-amber-50 { background-color: #2a1d07; }
+
+/* 文字層次 */
+[data-dark="true"] .text-gray-900 { color: #e8edf5; }
+[data-dark="true"] .text-gray-800 { color: #d4dbe8; }
+[data-dark="true"] .text-gray-700 { color: #b0bdd2; }
+[data-dark="true"] .text-gray-600 { color: #8095ae; }
+[data-dark="true"] .text-gray-500 { color: #5c6e84; }
+[data-dark="true"] .text-gray-400 { color: #415163; }
+[data-dark="true"] .text-gray-300 { color: #2a3a4a; }
+
+/* 邊框 */
+[data-dark="true"] .border-gray-50 { border-color: #1e3048; }
+[data-dark="true"] .border-gray-100 { border-color: #263d56; }
+[data-dark="true"] .border-gray-200 { border-color: #334f6a; }
+[data-dark="true"] .border-gray-300 { border-color: #4a6278; }
+[data-dark="true"] .border-dashed { border-color: #263d56; }
+
+/* 陰影 - 深色模式加強立體感 */
+[data-dark="true"] .shadow-sm {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+/* 表單元素 */
 [data-dark="true"] input,
 [data-dark="true"] textarea,
 [data-dark="true"] select {
-  background-color: #1e293b;
-  color: #f1f5f9;
-  border-color: #475569;
+  background-color: #1e3048;
+  color: #e8edf5;
+  border-color: #334f6a;
 }
