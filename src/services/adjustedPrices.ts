@@ -42,7 +42,7 @@ export async function fetchAdjustedPrices(code: string, fromDate: string): Promi
   // If we have older cache that covers even earlier dates, keep that range
   const fetchFrom = entry && entry.fromDate < fromDate ? entry.fromDate : fromDate
 
-  const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPriceAdj&stock_id=${encodeURIComponent(code)}&start_date=${fetchFrom}`
+  const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPriceAdj&data_id=${encodeURIComponent(code)}&start_date=${fetchFrom}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`FinMind error: ${res.status}`)
 

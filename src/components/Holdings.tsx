@@ -83,7 +83,7 @@ function AlertEditor({ code, alert, onSave, onClose }: {
 
 export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert }: Props) {
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
-  const [expandedChart, setExpandedChart] = useState<string | null>(holdings[0]?.stockCode ?? null)
+  const [expandedChart, setExpandedChart] = useState<string | null>(null)
 
   if (holdings.length === 0) return null
 
@@ -168,16 +168,20 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
                       </td>
                     </tr>
                   )}
-                  {expandedChart === h.stockCode && pricesByStock.has(h.stockCode) && (
+                  {expandedChart === h.stockCode && (
                     <tr key={`${h.stockCode}-chart`}>
                       <td colSpan={8} className="px-3">
-                        <StockChart
-                          stockCode={h.stockCode}
-                          prices={pricesByStock.get(h.stockCode)!}
-                          transactions={transactions}
-                          avgCost={h.avgCost}
-                          currentPrice={h.currentPrice}
-                        />
+                        {pricesByStock.has(h.stockCode) ? (
+                          <StockChart
+                            stockCode={h.stockCode}
+                            prices={pricesByStock.get(h.stockCode)!}
+                            transactions={transactions}
+                            avgCost={h.avgCost}
+                            currentPrice={h.currentPrice}
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-400 py-3">請先點「更新股價」</p>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -244,14 +248,18 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
                   {(alert.target || alert.stopLoss) ? '✏️ 編輯警示' : '＋設定警示'}
                 </button>
               </div>
-              {expandedChart === h.stockCode && pricesByStock.has(h.stockCode) && (
-                <StockChart
-                  stockCode={h.stockCode}
-                  prices={pricesByStock.get(h.stockCode)!}
-                  transactions={transactions}
-                  avgCost={h.avgCost}
-                  currentPrice={h.currentPrice}
-                />
+              {expandedChart === h.stockCode && (
+                pricesByStock.has(h.stockCode) ? (
+                  <StockChart
+                    stockCode={h.stockCode}
+                    prices={pricesByStock.get(h.stockCode)!}
+                    transactions={transactions}
+                    avgCost={h.avgCost}
+                    currentPrice={h.currentPrice}
+                  />
+                ) : (
+                  <p className="text-xs text-gray-400 pt-3">請先點上方「更新股價」</p>
+                )
               )}
               {editingAlert === h.stockCode && (
                 <AlertEditor
