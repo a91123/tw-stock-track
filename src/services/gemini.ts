@@ -89,20 +89,25 @@ function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+function yesterday(): string {
+  return new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
+}
+
 function buildSearchPrompt(label: string): string {
   return (
-    `今天是 ${today()}。搜尋「${label}」最近 7 天的財經新聞（包含中英文來源），列出最多 5 則最重要的，` +
-    `只回傳 ${today()} 往前 7 天內發布的新聞，更早的不要列入。` +
+    `今天是 ${today()}。搜尋「${label}」今天（${today()}）和昨天（${yesterday()}）發布的最新財經新聞（包含中英文來源），` +
+    `列出最多 5 則，依發布時間由新到舊排序。只回傳這 2 天內的新聞，更早的不要列入。` +
     `所有內容用繁體中文回答，並評估每則新聞對股價的潛在影響方向與原因。${JSON_FORMAT}`
   )
 }
 
 function buildHoldingsPrompt(label: string): string {
   return (
-    `今天是 ${today()}。我持有 ${label} 股票。搜尋最近 7 天對這檔股票最重要的消息（包含中英文來源），` +
-    `只回傳 ${today()} 往前 7 天內發布的新聞，更早的不要列入。` +
+    `今天是 ${today()}。我持有 ${label} 股票。` +
+    `搜尋今天（${today()}）和昨天（${yesterday()}）發布的最新消息（包含中英文來源），` +
+    `只回傳這 2 天內的新聞，更早的不要列入，依發布時間由新到舊排序，最多 5 則。` +
     `重點關注：法說會／財報、分析師評等調整、重大訂單／合約、產業供需變化、影響股價的政策或總經消息。` +
-    `所有內容用繁體中文，最多 5 則，依重要性排序。` +
+    `所有內容用繁體中文。` +
     `impact 欄位請具體分析：消息量級（重大／一般）、短中期股價影響方向，以及是否與法人動向或籌碼面有關聯。` +
     `${JSON_FORMAT}`
   )
@@ -165,7 +170,7 @@ export async function fetchStockNews(
   stockName?: string,
 ): Promise<NewsItem[]> {
   const label = stockName ? `${stockName}(${stockCode})` : stockCode
-  const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+  const cutoff = new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10)
   const items = await callGeminiSearch(apiKey, buildSearchPrompt(label))
   return items.filter(item => !item.date || item.date >= cutoff)
 }
@@ -188,17 +193,16 @@ export async function fetchAllHoldingsNews(
   const labels = holdings.map(h => h.name ? `${h.name}(${h.code})` : h.code).join('、')
   const prompt =
     `今天是 ${today()}。我持有以下台股：${labels}。` +
-    `搜尋每檔最近 7 天最重要的消息（包含中英文來源），每檔最多 3 則，` +
-    `只回傳 ${today()} 往前 7 天內發布的新聞，更早的不要列入。` +
+    `搜尋每檔今天（${today()}）和昨天（${yesterday()}）發布的最新消息（包含中英文來源），每檔最多 3 則，` +
+    `只回傳這 2 天內的新聞，更早的不要列入，依發布時間由新到舊排序。` +
     `重點關注：法說會／財報、分析師評等調整、重大訂單、產業供需、影響股價的政策。` +
-    `所有內容用繁體中文，依重要性排序。` +
-    `impact 說明消息量級與對股價短中期的潛在影響。` +
+    `所有內容用繁體中文。impact 說明消息量級與對股價短中期的潛在影響。` +
     `每則必須包含 stockCode 欄位（填股票代碼，例如 2330）。` +
     `只回傳 JSON 陣列，不要其他文字，格式：` +
     `{"stockCode":"代碼","title":"繁中標題","summary":"摘要","source":"媒體名稱","date":"YYYY-MM-DD",` +
     `"url":"原文連結","sentiment":"利多或利空或中性","impact":"潛在影響分析"}`
 
-  const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+  const cutoff = new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10)
   const items = (await callGeminiSearch(apiKey, prompt)).filter(
     item => !item.date || item.date >= cutoff,
   )
