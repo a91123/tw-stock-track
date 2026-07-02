@@ -229,7 +229,16 @@ export default function BenchmarkComparison({
       {loading ? (
         <div className="text-xs text-gray-400">載入中…</div>
       ) : errorMsg === 'notfound' ? (
-        <div className="text-xs text-red-400">找不到 {benchmarkCode} 資料</div>
+        <div className="space-y-1.5">
+          <div className="text-xs text-red-400">找不到 {benchmarkCode} 資料</div>
+          <button
+            onClick={handleRetry}
+            disabled={loading}
+            className="text-xs text-teal-600 hover:text-teal-800 underline underline-offset-2 disabled:opacity-40"
+          >
+            重新整理
+          </button>
+        </div>
       ) : incompleteForPeriod ? (
         <div className="text-xs space-y-1.5">
           <p className="text-amber-500">

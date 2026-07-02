@@ -48,14 +48,13 @@ export async function fetchAdjustedPrices(code: string, fromDate: string): Promi
 
   const json = (await res.json()) as {
     status: number
-    data: { date: string; close: number }[]
+    data: { date: string; close?: number; Close?: number }[]
   }
-  if (json.status !== 200 || !json.data) return []
+  if (json.status !== 200 || !json.data?.length) return []
 
-  const prices: StockPrice[] = json.data.map(d => ({
-    date: d.date,
-    close: d.close,
-  }))
+  const prices: StockPrice[] = json.data
+    .map(d => ({ date: d.date, close: d.close ?? d.Close ?? 0 }))
+    .filter(p => p.close > 0)
 
   writeCache(code, { prices, fromDate: fetchFrom, fetchedAt: Date.now() })
 
