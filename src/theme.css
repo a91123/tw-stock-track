@@ -31,8 +31,11 @@
 /* Theme C: 專業 (slate-900 + teal) — DEFAULT, no overrides needed */
 
 /* ===== Dark Mode ===== */
-/* 全域預設文字色：讓沒有 text-* class 的元素也能在深色背景上顯示 */
-[data-dark="true"] { color: #e8edf5; }
+/* 根元素直接套深色底色＋文字色（子元素選擇器選不到自身） */
+[data-dark="true"] {
+  color: #e8edf5;
+  background-color: #0d1421;
+}
 
 /* 三層結構：頁面底色 → 卡片 → 卡片內格 */
 
