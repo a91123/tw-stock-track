@@ -26,10 +26,13 @@ export default function DCACalculator() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
 
+  const maxYM = new Date().toISOString().slice(0, 7) // YYYY-MM, 防止選到未來
+
   async function calculate() {
     const code = stockCode.trim().toUpperCase()
     const amount = parseInt(monthlyAmount)
     if (!code || !amount || !startYM) return
+    if (startYM > maxYM) { setError('起始月份不能是未來時間'); return }
     setLoading(true)
     setError(null)
     setResult(null)
@@ -104,6 +107,7 @@ export default function DCACalculator() {
             <input
               type="month"
               value={startYM}
+              max={maxYM}
               onChange={e => setStartYM(e.target.value)}
               className="flex-1 min-w-[130px] text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-teal-400"
             />

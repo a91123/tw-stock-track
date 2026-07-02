@@ -1,17 +1,45 @@
 import { useState, useEffect } from 'react'
 import { fetchStockPrices, clearPriceCache } from '../services/stockPrices'
 import { fetchDividends, clearDividendCache } from '../services/dividends'
+import { DailyPortfolioData } from '../types'
 
 interface Props {
   firstBuyDate: string
-  portfolioReturn: number
+  portfolioReturn: number          // all-time total return (已含股利)
+  dailyPnL?: DailyPortfolioData[]  // 供計算特定區間組合報酬
 }
+
+type Period = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'all'
+
+const PERIODS: { key: Period; label: string; days: number | null }[] = [
+  { key: '1M',  label: '1月',  days: 30   },
+  { key: '3M',  label: '3月',  days: 90   },
+  { key: '6M',  label: '6月',  days: 180  },
+  { key: '1Y',  label: '1年',  days: 365  },
+  { key: '3Y',  label: '3年',  days: 1095 },
+  { key: 'all', label: '全期', days: null },
+]
 
 const DEFAULT_CODE = '0050'
 
 interface BenchmarkResult {
   returnPct: number
-  actualStartDate: string  // 實際取到的第一筆價格日期
+  actualStartDate: string
+}
+
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+function subtractDays(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return toDateStr(d)
+}
+
+/** 取兩個 YYYY-MM-DD 字串中較晚者 */
+function maxDate(a: string, b: string): string {
+  return a >= b ? a : b
 }
 
 async function fetchTotalReturn(code: string, fromDate: string): Promise<BenchmarkResult | null> {
@@ -24,7 +52,6 @@ async function fetchTotalReturn(code: string, fromDate: string): Promise<Benchma
   const endEntry = sorted[sorted.length - 1]
   if (!startEntry || !endEntry || startEntry.date === endEntry.date) return null
 
-  // 若起始日距 fromDate 超過 45 天，代表歷史月份因限流沒抓到，數字會嚴重偏低
   const daysDiff = (new Date(startEntry.date).getTime() - new Date(fromDate).getTime()) / 86400000
   if (daysDiff > 45) return null
 
@@ -38,7 +65,21 @@ async function fetchTotalReturn(code: string, fromDate: string): Promise<Benchma
   }
 }
 
-export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: Props) {
+/** 從 dailyPnL 計算特定區間的組合報酬（含股利 / 已實現損益） */
+function calcPortfolioReturn(dailyPnL: DailyPortfolioData[], fromDate: string): number | null {
+  if (!dailyPnL || dailyPnL.length === 0) return null
+  const sorted = [...dailyPnL].sort((a, b) => a.date.localeCompare(b.date))
+  const startEntry = sorted.find(e => e.date >= fromDate)
+  const endEntry = sorted[sorted.length - 1]
+  if (!startEntry || !endEntry || startEntry === endEntry) return null
+  if (startEntry.portfolioValue <= 0) return null
+  // periodPnL = 區間內增加的 P&L（含未實現 + 已實現 + 股利）
+  const periodPnL = endEntry.totalPnL - startEntry.totalPnL
+  return (periodPnL / startEntry.portfolioValue) * 100
+}
+
+export default function BenchmarkComparison({ firstBuyDate, portfolioReturn, dailyPnL }: Props) {
+  const [period, setPeriod] = useState<Period>('all')
   const [benchmarkCode, setBenchmarkCode] = useState(DEFAULT_CODE)
   const [inputCode, setInputCode] = useState('')
   const [result, setResult] = useState<BenchmarkResult | null>(null)
@@ -46,11 +87,17 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
+  function getFromDate(): string {
+    if (period === 'all') return firstBuyDate
+    const daysAgo = PERIODS.find(p => p.key === period)!.days!
+    return maxDate(subtractDays(daysAgo), firstBuyDate)
+  }
+
   useEffect(() => {
     if (!firstBuyDate) return
     setLoading(true)
     setErrorMsg(null)
-    fetchTotalReturn(benchmarkCode, firstBuyDate)
+    fetchTotalReturn(benchmarkCode, getFromDate())
       .then(r => {
         if (r !== null) {
           setResult(r)
@@ -60,7 +107,8 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
       })
       .catch(() => setErrorMsg('notfound'))
       .finally(() => setLoading(false))
-  }, [firstBuyDate, benchmarkCode, retryCount])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstBuyDate, benchmarkCode, period, retryCount])
 
   function handleCompare() {
     const code = inputCode.trim().toUpperCase()
@@ -80,8 +128,15 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
     setRetryCount(c => c + 1)
   }
 
+  const fromDate = getFromDate()
+  const activePortfolioReturn = period === 'all'
+    ? portfolioReturn
+    : (dailyPnL ? calcPortfolioReturn(dailyPnL, fromDate) : null)
+
   const benchmarkReturn = result?.returnPct ?? null
-  const diff = benchmarkReturn !== null ? portfolioReturn - benchmarkReturn : null
+  const diff = (benchmarkReturn !== null && activePortfolioReturn !== null)
+    ? activePortfolioReturn - benchmarkReturn
+    : null
   const fmt = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
   const color = (n: number) => n >= 0 ? 'text-green-600' : 'text-red-500'
   const isDefault = benchmarkCode === DEFAULT_CODE
@@ -104,6 +159,23 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
             回到大盤
           </button>
         )}
+      </div>
+
+      {/* 期間選擇 */}
+      <div className="flex gap-1 mb-3">
+        {PERIODS.map(p => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key)}
+            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+              period === p.key
+                ? 'bg-teal-600 text-white border-teal-600'
+                : 'border-gray-200 text-gray-500 hover:border-teal-400 hover:text-teal-600'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -129,7 +201,13 @@ export default function BenchmarkComparison({ firstBuyDate, portfolioReturn }: P
           <div className="flex items-stretch gap-3">
             <div className="flex-1 bg-teal-50 rounded-lg p-3 text-center">
               <div className="text-xs text-gray-500 mb-1">我的投資組合</div>
-              <div className={`text-xl font-bold ${color(portfolioReturn)}`}>{fmt(portfolioReturn)}</div>
+              {activePortfolioReturn !== null ? (
+                <div className={`text-xl font-bold ${color(activePortfolioReturn)}`}>
+                  {fmt(activePortfolioReturn)}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">—</div>
+              )}
             </div>
             <div className="flex-1 bg-slate-50 rounded-lg p-3 text-center">
               <div className="text-xs text-gray-500 mb-1">{benchmarkCode} 含股利</div>

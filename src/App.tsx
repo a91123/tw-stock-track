@@ -518,6 +518,7 @@ export default function App() {
             <BenchmarkComparison
               firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
               portfolioReturn={summary.returnRate}
+              dailyPnL={dailyPnL}
             />
           )}
           <AnnualReport transactions={transactions} feeSettings={feeSettings} stockNames={stockNames} />
