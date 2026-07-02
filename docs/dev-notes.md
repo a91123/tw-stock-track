@@ -46,6 +46,9 @@
   - 預設比 0050 含股利，可輸入任意代碼「對比」
   - **區間選擇**：1月 / 3月 / 6月 / 1年 / 3年 / 全期 膠囊按鈕
   - 「回到大盤」一鍵切回 0050
+  - **股價來源改用 FinMind `TaiwanStockPriceAdj`**（已還原股票分割，解決 0050 等 ETF 3年報酬率偏差）
+  - 切換期間從記憶體算（`useMemo`），不重新呼叫 API
+  - 重新整理按鈕含防抖，清除還原股價快取（12h）＋股利快取（7d）
 - [x] **定期定額試算**（DCACalculator，可折疊）
   - 輸入：股票代碼、每月投入、起始月、**投資年限**、**假設年化報酬率**（預設 8%）
   - 過去月份用真實 TWSE 股價；未來月份從最後已知股價複利推算
@@ -71,9 +74,12 @@
 
 ### UI / 體驗
 - [x] **桌機側邊欄**（w-52，sticky，含 logo/nav/更新/設定/深色/登出）
+- [x] **桌機頂部 Header**（hidden sm:flex sticky，含：更新股價、深色模式、用戶名稱、登出）
 - [x] **手機 Tab 列**（頂部，4 個分頁）
 - [x] **深色模式**（🌙/☀️ 切換，三層色階：頁面底色 → 卡片 → 卡片內格）
 - [x] 響應式設計（桌機表格 / 手機卡片）
+- [x] **❓ 使用說明 Modal**（5 分頁：快速開始 / 各頁功能 / 數字說明 / 匯入方式 / 常見問題）
+- [x] **版號顯示**（左下角 v1.1.1，方便用戶回報問題時定位版本）
 
 ---
 
@@ -105,28 +111,28 @@
 
 ### 3. 績效 vs 大盤（BenchmarkComparison）
 
+**資料來源：FinMind `TaiwanStockPriceAdj`**（還原股票分割後的收盤價），12 小時本地快取。
+
 **基準（0050 或自選股）含股利總報酬：**
 ```
-取 fromDate 後第一個有成交日的收盤價 = startPrice
-取最新收盤價 = endPrice
-區間累計現金股利 = sum(exDate >= fromDate 的配息)
-基準報酬率 = (endPrice + 累計股利 - startPrice) / startPrice × 100%
+startPrice = fromDate 後第一筆還原收盤價
+endPrice   = 最新還原收盤價
+cumDiv     = sum(exDate >= fromDate 的現金股利)
+基準報酬率 = (endPrice + cumDiv - startPrice) / startPrice × 100%
 ```
 
 **我的投資組合區間報酬（非全期）：**
 ```
 對每檔「現持股」：
-  sharesOnDate = fromDate 當時持股數（依交易紀錄計算）
-  startPrice   = pricesByStock[代碼][fromDate 後最近有資料日]
-  startValue  += sharesOnDate × startPrice
-
-  endValue    += 現持股數 × 現價
+  startPrice  = pricesByStock[代碼][fromDate 後最近有資料日]  ← TWSE 月快取
+  startValue += 現持股數 × startPrice
+  endValue   += 現持股數 × 現價
 
 期間報酬率 = (endValue - startValue) / startValue × 100%
 ```
-> 全期改用 `totalPnL / 成本` 以含入所有已實現損益（含股利）。
-
-> 注意：期間新買的股票（fromDate 時持股 = 0）自動排除，不影響比較基準。
+> 全期改用 `totalPnL / 成本` 以含入所有已實現損益（含股利）。  
+> 兩個 fromDate 獨立：基準不設下限；組合 fromDate 不早於 firstBuyDate（買之前沒持倉）。  
+> 超出持倉期間的區間，旁邊顯示「組合持倉未滿 N，以 firstBuyDate 起計」提示。
 
 ### 4. 定期定額試算（DCA）
 
@@ -178,10 +184,11 @@ finalPrice = 最後真實收盤價 × (1 + 月複利率)^(未來月份總數)
 ## 待處理 / 已知問題
 
 - [ ] 新聞 503 偶發（gemini-2.5-flash-lite 伺服器過載，重試邏輯已加但仍會失敗）
-- [ ] 配息查詢無 rate limit 保護（FinMind 免費版，持股 >10 檔可能觸限）
+- [ ] FinMind 免費版無 rate limit 保護（持股 >10 檔同時查配息可能觸限）
 - [ ] 深色模式覆蓋不完整（部分第三方元件顏色尚未處理）
 - [ ] DCA 試算：零頭不累計到下個月（每月剩餘現金消失，非最真實的 DCA 行為）
 - [ ] 定期定額未來預測假設股價線性複利，實際股價有波動，數字僅供參考
+- [ ] 組合期間報酬（pricesByStock）仍用 TWSE 月快取，若持股有分割仍可能偏差（BenchmarkComparison 的基準已換 FinMind，但持倉端尚未換）
 
 ---
 
@@ -192,7 +199,8 @@ finalPrice = 最後真實收盤價 × (1 + 月複利率)^(未來月份總數)
 | `src/services/gemini.ts` | 所有 Gemini API 呼叫 |
 | `src/services/firestore.ts` | Firestore 讀寫 |
 | `src/services/dividends.ts` | FinMind 配息查詢（7 天快取） |
-| `src/services/stockPrices.ts` | TWSE/TPEx 歷史股價、即時報價 |
+| `src/services/adjustedPrices.ts` | FinMind 還原股價 TaiwanStockPriceAdj（12h 快取，benchmark 用） |
+| `src/services/stockPrices.ts` | TWSE/TPEx 歷史股價（月快取）、即時報價 |
 | `src/utils/pnl.ts` | 損益計算（FIFO、XIRR） |
 | `src/utils/csv.ts` | CSV 解析（含國泰已實現格式） |
 | `src/utils/exportCsv.ts` | CSV 匯出 |
