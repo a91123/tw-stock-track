@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import { registerSW } from 'virtual:pwa-register'
 import './index.css'
+import './theme.css'
 import App from './App.tsx'
 
 // autoUpdate 模式：發現新版會自動套用並重整頁面。

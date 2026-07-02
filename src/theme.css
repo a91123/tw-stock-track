@@ -1,0 +1,31 @@
+/* ===== Theme A: 科技 (near-black + electric blue) ===== */
+[data-theme="A"] .bg-slate-900 { background-color: #0a0a0a; }
+[data-theme="A"] .bg-teal-500 { background-color: #3b82f6; }
+[data-theme="A"] .bg-teal-600 { background-color: #2563eb; }
+[data-theme="A"] .hover\:bg-teal-400:hover { background-color: #60a5fa; }
+[data-theme="A"] .hover\:bg-teal-700:hover { background-color: #1d4ed8; }
+[data-theme="A"] .bg-teal-50 { background-color: #eff6ff; }
+[data-theme="A"] .bg-teal-100 { background-color: #dbeafe; }
+[data-theme="A"] .text-teal-400 { color: #60a5fa; }
+[data-theme="A"] .text-teal-500 { color: #3b82f6; }
+[data-theme="A"] .text-teal-600 { color: #2563eb; }
+[data-theme="A"] .text-teal-700 { color: #1d4ed8; }
+[data-theme="A"] .border-teal-600 { border-color: #2563eb; }
+[data-theme="A"] .focus\:ring-teal-300:focus { --tw-ring-color: #93c5fd; }
+
+/* ===== Theme B: 金融 (zinc + amber/gold) ===== */
+[data-theme="B"] .bg-slate-900 { background-color: #18181b; }
+[data-theme="B"] .bg-teal-500 { background-color: #f59e0b; }
+[data-theme="B"] .bg-teal-600 { background-color: #d97706; }
+[data-theme="B"] .hover\:bg-teal-400:hover { background-color: #fbbf24; }
+[data-theme="B"] .hover\:bg-teal-700:hover { background-color: #b45309; }
+[data-theme="B"] .bg-teal-50 { background-color: #fffbeb; }
+[data-theme="B"] .bg-teal-100 { background-color: #fef3c7; }
+[data-theme="B"] .text-teal-400 { color: #fbbf24; }
+[data-theme="B"] .text-teal-500 { color: #f59e0b; }
+[data-theme="B"] .text-teal-600 { color: #d97706; }
+[data-theme="B"] .text-teal-700 { color: #b45309; }
+[data-theme="B"] .border-teal-600 { border-color: #d97706; }
+[data-theme="B"] .focus\:ring-teal-300:focus { --tw-ring-color: #fcd34d; }
+
+/* Theme C: 專業 (slate-900 + teal) — DEFAULT, no overrides needed */

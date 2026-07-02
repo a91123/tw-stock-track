@@ -59,6 +59,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [theme, setTheme] = useState<'A' | 'B' | 'C'>(() => (localStorage.getItem('ui-theme') as 'A' | 'B' | 'C') ?? 'C')
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -439,7 +440,7 @@ export default function App() {
   const hasData = transactions.length > 0
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50" data-theme={theme}>
       <div className="sticky top-0 z-20">
         <header className="bg-slate-900">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
@@ -465,6 +466,18 @@ export default function App() {
               >
                 {loading ? '更新中…' : '更新股價'}
               </button>
+              <div className="flex items-center gap-0.5 bg-slate-800 rounded-lg p-0.5">
+                {(['C', 'A', 'B'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setTheme(t); localStorage.setItem('ui-theme', t) }}
+                    className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${theme === t ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    title={{ C: '專業（青綠）', A: '科技（電藍）', B: '金融（金色）' }[t]}
+                  >
+                    {t === 'C' ? '專' : t === 'A' ? '科' : '金'}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => setShowSettings(true)}
                 className="text-lg leading-none text-slate-400 hover:text-white transition-colors"
