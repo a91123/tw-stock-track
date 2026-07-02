@@ -748,6 +748,9 @@ export default function App() {
                 >
                   {loading ? '更新中…' : '更新股價'}
                 </button>
+                <button onClick={() => setShowHelp(true)} className="text-slate-400 hover:text-white transition-colors">
+                  ❓
+                </button>
                 <button onClick={toggleDark} className="text-slate-400 hover:text-white transition-colors">
                   {isDark ? '☀️' : '🌙'}
                 </button>

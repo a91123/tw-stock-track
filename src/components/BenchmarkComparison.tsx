@@ -280,7 +280,7 @@ export default function BenchmarkComparison({
           </div>
           <div className="flex items-center justify-between mt-2">
             <p className="text-xs text-gray-400">
-              {result && <>基準：{fmtPeriod(result.actualStartDate)} 起</>}
+              {result && <>基準：{fmtPeriod(result.actualStartDate)} 起（以收盤價計算，非成本報酬）</>}
               {portfolioCapped && (
                 <span className="text-amber-500 ml-2">
                   組合持倉未滿 {PERIODS.find(p => p.key === period)!.label}，以 {fmtPeriod(firstBuyDate)} 起計
