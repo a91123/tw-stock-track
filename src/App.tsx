@@ -657,61 +657,58 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700/40 space-y-3">
-          {(syncing || saveError || newsSearchLoading) && (
-            <div className="text-xs space-y-1">
-              {syncing && <div className="text-teal-400">同步中…</div>}
-              {saveError && <div className="text-red-400" title={saveError}>⚠ 同步失敗</div>}
-              {newsSearchLoading && <div className="text-slate-400">新聞搜尋中…</div>}
-            </div>
-          )}
-          {lastUpdated && !syncing && (
-            <div className="text-xs text-slate-500">
-              更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
+        <div className="p-4 border-t border-slate-700/40">
           <button
-            onClick={handleRefresh}
-            disabled={loading || !hasData}
-            className="w-full py-2 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            onClick={() => setShowSettings(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
           >
-            {loading ? '更新中…' : '更新股價'}
+            ⚙️ <span>設定</span>
           </button>
-          <div className="flex items-center gap-2 pt-1">
-            {user.photoURL && (
-              <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full shrink-0" />
-            )}
-            <span className="text-xs text-slate-400 truncate flex-1 min-w-0">
-              {user.displayName ?? user.email}
-            </span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={toggleDark}
-                className="text-slate-400 hover:text-white transition-colors"
-                title={isDark ? '切換亮色' : '切換深色'}
-              >
-                {isDark ? '☀️' : '🌙'}
-              </button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="text-slate-400 hover:text-white transition-colors"
-                title="設定"
-              >
-                ⚙️
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-xs text-slate-400 hover:text-white transition-colors"
-              >
-                登出
-              </button>
-            </div>
-          </div>
         </div>
       </aside>
 
       {/* ── 內容區（手機：全寬；桌機：flex-1）────── */}
       <div className="flex-1 min-w-0">
+
+        {/* 桌機頂部 header */}
+        <header className="hidden sm:flex sticky top-0 z-10 bg-white border-b border-gray-100 px-6 h-12 items-center justify-between">
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            {syncing && <span className="text-teal-500">同步中…</span>}
+            {saveError && <span className="text-red-400" title={saveError}>⚠ 同步失敗</span>}
+            {newsSearchLoading && <span>新聞搜尋中…</span>}
+            {lastUpdated && !syncing && (
+              <span>更新：{lastUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              disabled={loading || !hasData}
+              className="px-3 py-1 text-xs font-medium bg-teal-500 text-white rounded-lg hover:bg-teal-400 disabled:opacity-40 transition-colors"
+            >
+              {loading ? '更新中…' : '更新股價'}
+            </button>
+            <button
+              onClick={toggleDark}
+              className="text-gray-400 hover:text-gray-700 transition-colors"
+              title={isDark ? '切換亮色' : '切換深色'}
+            >
+              {isDark ? '☀️' : '🌙'}
+            </button>
+            {user.photoURL && (
+              <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full" />
+            )}
+            <span className="text-sm text-gray-600 max-w-[120px] truncate">
+              {user.displayName ?? user.email}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              登出
+            </button>
+          </div>
+        </header>
 
         {/* 手機 header + tabs */}
         <div className="sm:hidden sticky top-0 z-20">
