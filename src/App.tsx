@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import * as Sentry from '@sentry/react'
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from './services/firebase'
-import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache } from './services/firestore'
+import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache, PriceAlert } from './services/firestore'
 import { fetchStockNews, fetchAllHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, getStockMarket } from './services/stockPrices'
@@ -28,6 +28,7 @@ import { PortfolioContext } from './services/gemini'
 import { fetchDividends, clearDividendCache } from './services/dividends'
 import AllocationChart from './components/AllocationChart'
 import BenchmarkComparison from './components/BenchmarkComparison'
+import AnnualReport from './components/AnnualReport'
 import { FeeSettings, loadFeeSettings, saveFeeSettings } from './utils/fees'
 
 type TabKey = 'assets' | 'holdings' | 'records' | 'news'
@@ -62,6 +63,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [priceAlerts, setPriceAlerts] = useState<Record<string, PriceAlert>>({})
 
   // Firebase auth 狀態監聽
   useEffect(() => {
@@ -80,6 +82,7 @@ export default function App() {
         const data = await loadUserData(u.uid)
         setTransactions(data?.transactions ?? [])
         setStockNames(data?.stockNames ?? {})
+        setPriceAlerts(data?.priceAlerts ?? {})
         setTab(data && data.transactions.length > 0 ? 'assets' : 'records')
       } catch (err) {
         Sentry.captureException(err, { tags: { feature: 'firestore-sync' } })
@@ -158,12 +161,12 @@ export default function App() {
   useEffect(() => {
     if (!user || loadingFromFirestore.current) return
     setSaveError(null)
-    void saveUserData(user.uid, { transactions, stockNames }).catch(err => {
+    void saveUserData(user.uid, { transactions, stockNames, priceAlerts }).catch(err => {
       console.error('[Firestore save error]', err)
       Sentry.captureException(err, { tags: { feature: 'firestore-save' } })
       setSaveError(`資料同步失敗：${err instanceof Error ? err.message : String(err)}`)
     })
-  }, [transactions, stockNames, user])
+  }, [transactions, stockNames, priceAlerts, user])
 
   // 每檔股票記錄「自己的」第一筆交易日
   const fetchKey = useMemo(() => {
@@ -355,6 +358,16 @@ export default function App() {
     setStockNames(next)
   }
 
+  function setAlert(code: string, alert: PriceAlert) {
+    setPriceAlerts(prev => ({ ...prev, [code]: alert }))
+  }
+
+  const triggeredAlerts = holdings.filter(h => {
+    const a = priceAlerts[h.stockCode]
+    if (!a || h.currentPrice === null) return false
+    return (a.target && h.currentPrice >= a.target) || (a.stopLoss && h.currentPrice <= a.stopLoss)
+  })
+
   async function handleLogin() {
     try {
       await signInWithPopup(auth, googleProvider)
@@ -526,6 +539,22 @@ export default function App() {
           </div>
         )}
 
+        {triggeredAlerts.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm flex flex-col gap-1">
+            {triggeredAlerts.map(h => {
+              const a = priceAlerts[h.stockCode]
+              const hit = a.target && h.currentPrice !== null && h.currentPrice >= a.target ? `已達目標價 ${a.target}` : `已觸及停損價 ${a.stopLoss}`
+              return (
+                <div key={h.stockCode} className="flex items-center gap-2">
+                  <span>{a.target && h.currentPrice !== null && h.currentPrice >= a.target ? '🎯' : '🛑'}</span>
+                  <span className="font-medium">{h.stockCode}</span>
+                  <span className="text-amber-700">{hit}（現價 {h.currentPrice}）</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {!hasData && tab !== 'records' && (
           <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400">
             <p className="text-4xl mb-3">📈</p>
@@ -552,6 +581,7 @@ export default function App() {
                 portfolioReturn={summary.returnRate}
               />
             )}
+            <AnnualReport transactions={transactions} feeSettings={feeSettings} stockNames={stockNames} />
             {dailyPnL.length > 0 && <PnLChart data={dailyPnL} />}
             {dailyPnL.length > 0 && <ReturnCalendar data={dailyPnL} />}
             <PortfolioAnalysis
@@ -599,7 +629,7 @@ export default function App() {
                 </button>
               </div>
             )}
-            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} onRename={setStockName} />}
+            {holdings.length > 0 && <Holdings holdings={holdings} isRealtime={realtimePrices.size > 0} names={stockNames} priceAlerts={priceAlerts} onRename={setStockName} onSetAlert={setAlert} />}
             {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
             {holdings.length === 0 && stockDetails.length === 0 && (
               <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
@@ -622,7 +652,7 @@ export default function App() {
             <ImportTransactions onAddMany={addTransactions} onOpenSettings={() => setShowSettings(true)} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
               <TransactionForm onAdd={addTransaction} />
-              <TransactionList transactions={transactions} onDelete={deleteTransaction} />
+              <TransactionList transactions={transactions} stockNames={stockNames} onDelete={deleteTransaction} />
             </div>
           </>
         )}

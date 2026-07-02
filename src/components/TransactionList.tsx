@@ -1,7 +1,9 @@
 import { Transaction } from '../types'
+import { exportTransactionsCSV } from '../utils/exportCsv'
 
 interface Props {
   transactions: Transaction[]
+  stockNames: Record<string, string>
   onDelete: (id: string) => void
 }
 
@@ -16,15 +18,25 @@ const TYPE_META: Record<string, { label: string; cls: string }> = {
   dividend: { label: '股利', cls: 'bg-teal-100 text-teal-700' },
 }
 
-export default function TransactionList({ transactions, onDelete }: Props) {
+export default function TransactionList({ transactions, stockNames, onDelete }: Props) {
   const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">
-        交易紀錄
-        <span className="ml-2 text-xs text-gray-400 font-normal">（共 {transactions.length} 筆）</span>
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-700">
+          交易紀錄
+          <span className="ml-2 text-xs text-gray-400 font-normal">（共 {transactions.length} 筆）</span>
+        </h2>
+        {transactions.length > 0 && (
+          <button
+            onClick={() => exportTransactionsCSV(transactions, stockNames)}
+            className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
+          >
+            ↓ 匯出 CSV
+          </button>
+        )}
+      </div>
 
       {sorted.length === 0 ? (
         <div className="text-center py-10 text-gray-400 text-sm">尚無交易紀錄</div>

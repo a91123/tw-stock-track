@@ -3,9 +3,15 @@ import { db } from './firebase'
 import { Transaction } from '../types'
 import { NewsItem } from './gemini'
 
+export interface PriceAlert {
+  target?: number   // 目標價
+  stopLoss?: number // 停損價
+}
+
 interface UserData {
   transactions: Transaction[]
   stockNames: Record<string, string>
+  priceAlerts?: Record<string, PriceAlert>
 }
 
 export interface NewsCache {
