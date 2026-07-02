@@ -267,14 +267,23 @@ export default function BenchmarkComparison({
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-2">
-            {result && <>基準：{fmtPeriod(result.actualStartDate)} 起</>}
-            {portfolioCapped && (
-              <span className="text-amber-500 ml-2">
-                組合持倉未滿 {PERIODS.find(p => p.key === period)!.label}，以 {fmtPeriod(firstBuyDate)} 起計
-              </span>
-            )}
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-gray-400">
+              {result && <>基準：{fmtPeriod(result.actualStartDate)} 起</>}
+              {portfolioCapped && (
+                <span className="text-amber-500 ml-2">
+                  組合持倉未滿 {PERIODS.find(p => p.key === period)!.label}，以 {fmtPeriod(firstBuyDate)} 起計
+                </span>
+              )}
+            </p>
+            <button
+              onClick={handleRetry}
+              className="text-xs text-gray-300 hover:text-teal-600 transition-colors shrink-0"
+              title="數字不對？清除快取重新抓"
+            >
+              重新整理
+            </button>
+          </div>
         </>
       )}
 
