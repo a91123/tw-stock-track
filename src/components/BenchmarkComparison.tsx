@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { fetchStockPrices, clearPriceCache } from '../services/stockPrices'
-import { fetchDividends, clearDividendCache } from '../services/dividends'
-import { StockDetail } from '../types'
+import { fetchDividends, clearDividendCache, DividendRecord } from '../services/dividends'
+import { StockPrice, StockDetail } from '../types'
 
 interface Props {
   firstBuyDate: string
-  portfolioReturn: number                              // all-time total return (已含股利)
-  pricesByStock: Map<string, Map<string, number>>     // stockCode → date → close
-  holdings: StockDetail[]                             // 目前持倉（含 currentPrice）
+  portfolioReturn: number
+  pricesByStock: Map<string, Map<string, number>>
+  holdings: StockDetail[]
 }
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '3Y' | 'all'
@@ -42,11 +42,12 @@ function maxDate(a: string, b: string): string {
   return a >= b ? a : b
 }
 
-async function fetchTotalReturn(code: string, fromDate: string): Promise<BenchmarkResult | null> {
-  const [prices, dividends] = await Promise.all([
-    fetchStockPrices(code, fromDate),
-    fetchDividends(code),
-  ])
+/** 從已載入的資料中計算指定區間的含股利報酬（同步，無網路請求） */
+function computeBenchmarkReturn(
+  prices: StockPrice[],
+  dividends: DividendRecord[],
+  fromDate: string,
+): BenchmarkResult | null {
   const sorted = [...prices].sort((a, b) => a.date.localeCompare(b.date))
   const startEntry = sorted.find(p => p.date >= fromDate)
   const endEntry = sorted[sorted.length - 1]
@@ -65,15 +66,7 @@ async function fetchTotalReturn(code: string, fromDate: string): Promise<Benchma
   }
 }
 
-/**
- * 計算特定區間的組合報酬：
- * - 對每檔現持股：用「現在持股數 × fromDate 股價」當期初市值
- * - 用「現在持股數 × 現價」當期末市值
- * - 回答的問題：「從 fromDate 到現在，我現在的這些股票漲了多少？」
- *
- * 不使用 getSharesOnDate 是為了避免 CSV 匯入的賣出交易（無對應買入）
- * 干擾持股數計算，導致分母失真。
- */
+/** 期間組合報酬：現在持股數 × fromDate 股價 → 現價 */
 function calcPortfolioReturn(
   pricesByStock: Map<string, Map<string, number>>,
   holdings: StockDetail[],
@@ -109,10 +102,34 @@ export default function BenchmarkComparison({
   const [period, setPeriod] = useState<Period>('all')
   const [benchmarkCode, setBenchmarkCode] = useState(DEFAULT_CODE)
   const [inputCode, setInputCode] = useState('')
-  const [result, setResult] = useState<BenchmarkResult | null>(null)
+
+  // 一次載入最長區間的資料，切期間不重新抓
+  const [benchmarkPrices, setBenchmarkPrices] = useState<StockPrice[]>([])
+  const [benchmarkDivs, setBenchmarkDivs] = useState<DividendRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+
+  useEffect(() => {
+    if (!firstBuyDate) return
+    setLoading(true)
+    setErrorMsg(null)
+    // 抓 3 年或首次買入（取較早者）的全部歷史，一次到位
+    const fetchFrom = maxDate(subtractDays(3 * 365), firstBuyDate) < firstBuyDate
+      ? subtractDays(3 * 365)
+      : firstBuyDate
+    Promise.all([
+      fetchStockPrices(benchmarkCode, fetchFrom),
+      fetchDividends(benchmarkCode),
+    ])
+      .then(([prices, divs]) => {
+        if (prices.length === 0) { setErrorMsg('notfound'); return }
+        setBenchmarkPrices(prices)
+        setBenchmarkDivs(divs)
+      })
+      .catch(() => setErrorMsg('notfound'))
+      .finally(() => setLoading(false))
+  }, [firstBuyDate, benchmarkCode, retryCount])
 
   function getFromDate(): string {
     if (period === 'all') return firstBuyDate
@@ -120,37 +137,28 @@ export default function BenchmarkComparison({
     return maxDate(subtractDays(daysAgo), firstBuyDate)
   }
 
-  useEffect(() => {
-    if (!firstBuyDate) return
-    setLoading(true)
-    setErrorMsg(null)
-    fetchTotalReturn(benchmarkCode, getFromDate())
-      .then(r => {
-        if (r !== null) {
-          setResult(r)
-        } else {
-          setErrorMsg('incomplete')
-        }
-      })
-      .catch(() => setErrorMsg('notfound'))
-      .finally(() => setLoading(false))
+  // 切期間時從記憶體算，不觸發任何 loading
+  const result = useMemo<BenchmarkResult | null>(() => {
+    if (benchmarkPrices.length === 0) return null
+    return computeBenchmarkReturn(benchmarkPrices, benchmarkDivs, getFromDate())
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstBuyDate, benchmarkCode, period, retryCount])
+  }, [benchmarkPrices, benchmarkDivs, period, firstBuyDate])
 
   function handleCompare() {
     const code = inputCode.trim().toUpperCase()
     if (!code) return
     setBenchmarkCode(code)
     setInputCode('')
-    setResult(null)
-    setLoading(true)
+    setBenchmarkPrices([])
+    setBenchmarkDivs([])
     setErrorMsg(null)
   }
 
   function handleRetry() {
     clearPriceCache(benchmarkCode)
     clearDividendCache(benchmarkCode)
-    setResult(null)
+    setBenchmarkPrices([])
+    setBenchmarkDivs([])
     setErrorMsg(null)
     setRetryCount(c => c + 1)
   }
@@ -168,6 +176,8 @@ export default function BenchmarkComparison({
   const color = (n: number) => n >= 0 ? 'text-green-600' : 'text-red-500'
   const isDefault = benchmarkCode === DEFAULT_CODE
 
+  const incompleteForPeriod = !loading && !errorMsg && result === null && benchmarkPrices.length > 0
+
   function fmtPeriod(dateStr: string) {
     return dateStr.slice(0, 7).replace('-', '/')
   }
@@ -180,7 +190,7 @@ export default function BenchmarkComparison({
         </h3>
         {!isDefault && (
           <button
-            onClick={() => { setBenchmarkCode(DEFAULT_CODE); setResult(null); setErrorMsg(null) }}
+            onClick={() => { setBenchmarkCode(DEFAULT_CODE); setBenchmarkPrices([]); setBenchmarkDivs([]) }}
             className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
           >
             回到大盤
@@ -207,10 +217,12 @@ export default function BenchmarkComparison({
 
       {loading ? (
         <div className="text-xs text-gray-400">載入中…</div>
-      ) : errorMsg === 'incomplete' ? (
+      ) : errorMsg === 'notfound' ? (
+        <div className="text-xs text-red-400">找不到 {benchmarkCode} 資料</div>
+      ) : incompleteForPeriod ? (
         <div className="text-xs space-y-1.5">
           <p className="text-amber-500">
-            ⚠ {benchmarkCode} 歷史資料不完整（股價更新中可能被限流），數字可能偏低
+            ⚠ {benchmarkCode} 此區間資料不完整，數字可能偏低
           </p>
           <button
             onClick={handleRetry}
@@ -219,8 +231,6 @@ export default function BenchmarkComparison({
             清除快取並重新查詢
           </button>
         </div>
-      ) : errorMsg === 'notfound' ? (
-        <div className="text-xs text-red-400">找不到 {benchmarkCode} 資料</div>
       ) : benchmarkReturn === null ? (
         <div className="text-xs text-gray-400">查無 {benchmarkCode} 資料</div>
       ) : (
