@@ -380,9 +380,7 @@ export default function App() {
 
     await Promise.allSettled(
       codes.map(async code => {
-        const market = getStockMarket(code)
-        if (!market) return
-        const records = await fetchDividends(code, market)
+        const records = await fetchDividends(code)
         for (const d of records) {
           if (recordedKeys.has(`${d.stockCode}:${d.exDate}`)) continue
           const sharesHeld = getSharesOnDate(transactions, code, d.exDate)
