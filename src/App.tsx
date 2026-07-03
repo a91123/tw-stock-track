@@ -60,6 +60,8 @@ export default function App() {
   const autoFetchedDividends = useRef(false)
   const [dividendSuggestions, setDividendSuggestions] = useState<SuggestedDividend[] | null>(null)
   const [checkingDividends, setCheckingDividends] = useState(false)
+  const [updatingDivAmounts, setUpdatingDivAmounts] = useState(false)
+  const [divUpdateResult, setDivUpdateResult] = useState<number | null>(null)
   const [autoNews, setAutoNews] = useState<Record<string, NewsItem[]>>({})
   const [newsDate, setNewsDate] = useState<string | null>(null)
   const [newsLoading, setNewsLoading] = useState(false)
@@ -239,6 +241,39 @@ export default function App() {
     void loadPrices(parseFetchKey(fetchKey), true)
     // 同時強制重新查詢配息（清除快取後重抓，修正 CashCapitalReserveDistribution 漏算）
     void handleCheckDividends(true)
+  }
+
+  async function handleUpdateDividendAmounts() {
+    setUpdatingDivAmounts(true)
+    setDivUpdateResult(null)
+
+    const codes = [...new Set(transactions.filter(t => t.type === 'dividend').map(t => t.stockCode))]
+    codes.forEach(clearDividendCache)
+
+    const finmindMap = new Map<string, number>()
+    await Promise.allSettled(
+      codes.map(async code => {
+        const records = await fetchDividends(code)
+        for (const r of records) finmindMap.set(`${r.stockCode}:${r.exDate}`, r.cashPerShare)
+      }),
+    )
+
+    const newPriceById = new Map<string, number>()
+    for (const tx of transactions) {
+      if (tx.type !== 'dividend') continue
+      const latest = finmindMap.get(`${tx.stockCode}:${tx.date}`)
+      if (latest === undefined || Math.abs(tx.price - latest) < 0.0001) continue
+      newPriceById.set(tx.id, latest)
+    }
+
+    if (newPriceById.size > 0) {
+      setTransactions(prev => prev.map(tx =>
+        newPriceById.has(tx.id) ? { ...tx, price: newPriceById.get(tx.id)! } : tx,
+      ))
+    }
+
+    setDivUpdateResult(newPriceById.size)
+    setUpdatingDivAmounts(false)
   }
 
   function handleSplitAdjust(code: string, splitDate: string, ratio: number) {
@@ -581,16 +616,28 @@ export default function App() {
               onDismiss={() => setDividendSuggestions(null)}
             />
           ) : (
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-3">
               {dividendSuggestions !== null && (
                 <span className="text-xs text-gray-400">✓ 配息紀錄都已入帳</span>
               )}
+              {divUpdateResult !== null && (
+                <span className="text-xs text-gray-400">
+                  {divUpdateResult === 0 ? '✓ 金額已是最新' : `已更新 ${divUpdateResult} 筆金額`}
+                </span>
+              )}
               <button
                 onClick={() => handleCheckDividends(true)}
-                disabled={checkingDividends}
+                disabled={checkingDividends || updatingDivAmounts}
                 className="text-xs text-gray-400 hover:text-teal-600 disabled:opacity-40 transition-colors"
               >
                 重新查詢
+              </button>
+              <button
+                onClick={() => handleUpdateDividendAmounts()}
+                disabled={updatingDivAmounts || checkingDividends}
+                className="text-xs text-gray-400 hover:text-teal-600 disabled:opacity-40 transition-colors"
+              >
+                {updatingDivAmounts ? '更新中…' : '更新已匯入金額'}
               </button>
             </div>
           )}
