@@ -17,82 +17,153 @@ interface Props {
   onSplitAdjust: (code: string, splitDate: string, ratio: number) => void
 }
 
+interface SplitEvent {
+  date: string   // last day at old price (transactions on/before this date get adjusted)
+  ratio: number  // transaction ratio: shares × ratio, price ÷ ratio
+}
+
+function detectSplitsFromPriceMap(priceMap: Map<string, number>): SplitEvent[] {
+  const sorted = [...priceMap.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const splits: SplitEvent[] = []
+  for (let i = 1; i < sorted.length; i++) {
+    const prevPrice = sorted[i - 1][1]
+    if (prevPrice === 0) continue
+    const priceRatio = sorted[i][1] / prevPrice
+    if (priceRatio < 0.6 || priceRatio > 1.65) {
+      // priceRatio ≈ 0.5 means price halved → shares doubled → tx ratio = 2
+      const txRatio = Math.round((1 / priceRatio) * 1000) / 1000
+      splits.push({ date: sorted[i - 1][0], ratio: txRatio })
+    }
+  }
+  return splits
+}
+
 function SplitDialog({
-  code, transactions, onConfirm, onClose,
+  code, transactions, priceMap, onConfirm, onClose,
 }: {
   code: string
   transactions: Transaction[]
+  priceMap: Map<string, number> | undefined
   onConfirm: (splitDate: string, ratio: number) => void
   onClose: () => void
 }) {
-  const [splitDate, setSplitDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [ratio, setRatio] = useState('2')
+  const splits = priceMap && priceMap.size > 0 ? detectSplitsFromPriceMap(priceMap) : []
+  const [selected, setSelected] = useState<string | null>(splits[0]?.date ?? null)
 
-  const ratioNum = parseFloat(ratio)
+  // Fallback manual state (used when auto-detect finds nothing)
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [manualRatio, setManualRatio] = useState('2')
+
+  const noData = !priceMap || priceMap.size === 0
+
+  const activeDate = splits.length > 0 ? selected : manualDate
+  const activeRatio = splits.length > 0
+    ? (splits.find(s => s.date === selected)?.ratio ?? 1)
+    : parseFloat(manualRatio)
+
   const affected = transactions.filter(
-    t => t.stockCode === code && t.date <= splitDate && (t.type === 'buy' || t.type === 'sell'),
+    t => t.stockCode === code && !!activeDate && t.date <= activeDate && (t.type === 'buy' || t.type === 'sell'),
   )
 
   function handleConfirm() {
-    if (!splitDate || isNaN(ratioNum) || ratioNum <= 0 || ratioNum === 1) return
-    onConfirm(splitDate, ratioNum)
+    if (!activeDate || isNaN(activeRatio) || activeRatio <= 0 || activeRatio === 1) return
+    onConfirm(activeDate, activeRatio)
     onClose()
   }
+
+  const canConfirm = affected.length > 0 && !isNaN(activeRatio) && activeRatio > 0 && activeRatio !== 1
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
         <h3 className="font-semibold text-gray-800">股票分割調整 — {code}</h3>
 
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">分割日期（含當日及之前的交易都會調整）</label>
-            <input
-              type="date"
-              value={splitDate}
-              onChange={e => setSplitDate(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
-            />
+        {noData ? (
+          <div className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+            尚無歷史股價資料。請先點「更新股價」再回來操作。
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">分割比例（例：2:1 填 2，反向 1:2 填 0.5）</label>
-            <input
-              type="number"
-              value={ratio}
-              onChange={e => setRatio(e.target.value)}
-              step="0.5"
-              min="0.1"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
-            />
+        ) : splits.length === 0 ? (
+          <div className="space-y-3">
+            <div className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              未從歷史資料偵測到分割事件。若確認有分割，可手動輸入：
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">分割日期（該日及之前的交易將被調整）</label>
+              <input
+                type="date"
+                value={manualDate}
+                onChange={e => setManualDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">分割比例（2:1 填 2，反向合股 1:2 填 0.5）</label>
+              <input
+                type="number"
+                value={manualRatio}
+                onChange={e => setManualRatio(e.target.value)}
+                step="0.5"
+                min="0.1"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500">從歷史股價偵測到以下分割事件，請選擇要套用的項目：</p>
+            {splits.map(s => {
+              const label = s.ratio > 1
+                ? `${Math.round(s.ratio * 10) / 10}:1 分割`
+                : `1:${Math.round((1 / s.ratio) * 10) / 10} 合股`
+              return (
+                <label
+                  key={s.date}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer border transition-colors ${selected === s.date ? 'border-amber-400 bg-amber-50' : 'border-gray-100 hover:border-gray-200'}`}
+                >
+                  <input
+                    type="radio"
+                    name="split-event"
+                    checked={selected === s.date}
+                    onChange={() => setSelected(s.date)}
+                    className="accent-amber-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">{s.date}</span>
+                    <span className="ml-2 text-xs text-gray-500">{label}</span>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        )}
 
-        <div className={`text-xs rounded-lg px-3 py-2 ${affected.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
-          {affected.length > 0 ? (
-            <>
-              ⚠ 將修改 {affected.length} 筆買賣交易：股數 ×{ratioNum}、單價 ÷{ratioNum}。
-              操作後若發現填錯，以相反比例（{ratioNum === 0 ? '—' : (1 / ratioNum).toFixed(4)}）再執行一次可還原。
-            </>
-          ) : (
-            '該日期前無買賣交易，不會有任何變更。'
-          )}
-        </div>
+        {!noData && (
+          <div className={`text-xs rounded-lg px-3 py-2 ${affected.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
+            {affected.length > 0 ? (
+              <>
+                ⚠ 將修改 {affected.length} 筆買賣交易：股數 ×{activeRatio}、單價 ÷{activeRatio}。
+                操作後若填錯，以相反比例（{activeRatio === 0 ? '—' : (1 / activeRatio).toFixed(4)}）再執行一次可還原。
+              </>
+            ) : (
+              '所選日期前無買賣交易，不會有任何變更。'
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
             取消
           </button>
-          <button
-            onClick={handleConfirm}
-            disabled={affected.length === 0 || isNaN(ratioNum) || ratioNum <= 0 || ratioNum === 1}
-            className="px-4 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-40 transition-colors"
-          >
-            確認調整
-          </button>
+          {!noData && (
+            <button
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              className="px-4 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-40 transition-colors"
+            >
+              確認調整
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -177,6 +248,7 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
       <SplitDialog
         code={splitTarget}
         transactions={transactions}
+        priceMap={pricesByStock.get(splitTarget)}
         onConfirm={(splitDate, ratio) => onSplitAdjust(splitTarget, splitDate, ratio)}
         onClose={() => setSplitTarget(null)}
       />
