@@ -9,6 +9,7 @@ interface FinMindDividend {
   CashExDividendTradingDate: string
   CashEarningsDistribution: number
   CashStatutorySurplus: number
+  CashCapitalReserveDistribution: number  // 現金資本公積，高息ETF主要來源
 }
 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000 // 7 天
@@ -41,7 +42,7 @@ export async function fetchDividends(stockCode: string): Promise<DividendRecord[
       .map(d => ({
         stockCode,
         exDate: d.CashExDividendTradingDate,
-        cashPerShare: (d.CashEarningsDistribution ?? 0) + (d.CashStatutorySurplus ?? 0),
+        cashPerShare: (d.CashEarningsDistribution ?? 0) + (d.CashStatutorySurplus ?? 0) + (d.CashCapitalReserveDistribution ?? 0),
       }))
       .filter(d => d.cashPerShare > 0)
 

@@ -237,6 +237,8 @@ export default function App() {
   function handleRefresh() {
     if (!fetchKey) return
     void loadPrices(parseFetchKey(fetchKey), true)
+    // 同時強制重新查詢配息（清除快取後重抓，修正 CashCapitalReserveDistribution 漏算）
+    void handleCheckDividends(true)
   }
 
   function updateFeeSettings(s: FeeSettings) {
