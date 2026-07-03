@@ -241,6 +241,18 @@ export default function App() {
     void handleCheckDividends(true)
   }
 
+  function handleSplitAdjust(code: string, splitDate: string, ratio: number) {
+    setTransactions(prev => prev.map(tx => {
+      if (tx.stockCode !== code || tx.date > splitDate) return tx
+      if (tx.type !== 'buy' && tx.type !== 'sell') return tx
+      return {
+        ...tx,
+        shares: Math.round(tx.shares * ratio * 1e6) / 1e6,
+        price: Math.round((tx.price / ratio) * 1e4) / 1e4,
+      }
+    }))
+  }
+
   function updateFeeSettings(s: FeeSettings) {
     setFeeSettings(s)
     saveFeeSettings(s)
@@ -592,6 +604,7 @@ export default function App() {
               transactions={transactions}
               onRename={setStockName}
               onSetAlert={setAlert}
+              onSplitAdjust={handleSplitAdjust}
             />
           )}
           {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}

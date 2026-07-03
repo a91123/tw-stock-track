@@ -14,6 +14,89 @@ interface Props {
   transactions: Transaction[]
   onRename: (code: string, name: string) => void
   onSetAlert: (code: string, alert: PriceAlert) => void
+  onSplitAdjust: (code: string, splitDate: string, ratio: number) => void
+}
+
+function SplitDialog({
+  code, transactions, onConfirm, onClose,
+}: {
+  code: string
+  transactions: Transaction[]
+  onConfirm: (splitDate: string, ratio: number) => void
+  onClose: () => void
+}) {
+  const [splitDate, setSplitDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [ratio, setRatio] = useState('2')
+
+  const ratioNum = parseFloat(ratio)
+  const affected = transactions.filter(
+    t => t.stockCode === code && t.date <= splitDate && (t.type === 'buy' || t.type === 'sell'),
+  )
+
+  function handleConfirm() {
+    if (!splitDate || isNaN(ratioNum) || ratioNum <= 0 || ratioNum === 1) return
+    onConfirm(splitDate, ratioNum)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+        <h3 className="font-semibold text-gray-800">股票分割調整 — {code}</h3>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">分割日期（含當日及之前的交易都會調整）</label>
+            <input
+              type="date"
+              value={splitDate}
+              onChange={e => setSplitDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">分割比例（例：2:1 填 2，反向 1:2 填 0.5）</label>
+            <input
+              type="number"
+              value={ratio}
+              onChange={e => setRatio(e.target.value)}
+              step="0.5"
+              min="0.1"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+            />
+          </div>
+        </div>
+
+        <div className={`text-xs rounded-lg px-3 py-2 ${affected.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
+          {affected.length > 0 ? (
+            <>
+              ⚠ 將修改 {affected.length} 筆買賣交易：股數 ×{ratioNum}、單價 ÷{ratioNum}。
+              操作後若發現填錯，以相反比例（{ratioNum === 0 ? '—' : (1 / ratioNum).toFixed(4)}）再執行一次可還原。
+            </>
+          ) : (
+            '該日期前無買賣交易，不會有任何變更。'
+          )}
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={affected.length === 0 || isNaN(ratioNum) || ratioNum <= 0 || ratioNum === 1}
+            className="px-4 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-40 transition-colors"
+          >
+            確認調整
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function fmtNum(v: number, decimals = 0) {
@@ -81,13 +164,23 @@ function AlertEditor({ code, alert, onSave, onClose }: {
   )
 }
 
-export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert }: Props) {
+export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert, onSplitAdjust }: Props) {
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
   const [expandedChart, setExpandedChart] = useState<string | null>(null)
+  const [splitTarget, setSplitTarget] = useState<string | null>(null)
 
   if (holdings.length === 0) return null
 
   return (
+    <>
+    {splitTarget && (
+      <SplitDialog
+        code={splitTarget}
+        transactions={transactions}
+        onConfirm={(splitDate, ratio) => onSplitAdjust(splitTarget, splitDate, ratio)}
+        onClose={() => setSplitTarget(null)}
+      />
+    )}
     <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-sm font-semibold text-gray-700">目前持倉</h2>
@@ -148,12 +241,21 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
                       <PnLText value={h.returnRate !== null ? Math.round(h.returnRate * 100) / 100 : null} suffix="%" />
                     </td>
                     <td className="py-3 text-right">
-                      <button
-                        onClick={() => setEditingAlert(editingAlert === h.stockCode ? null : h.stockCode)}
-                        className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
-                      >
-                        {(alert.target || alert.stopLoss) ? '✏️' : '＋設定'}
-                      </button>
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={() => setEditingAlert(editingAlert === h.stockCode ? null : h.stockCode)}
+                          className="text-xs text-gray-400 hover:text-teal-600 transition-colors"
+                        >
+                          {(alert.target || alert.stopLoss) ? '✏️' : '＋設定'}
+                        </button>
+                        <button
+                          onClick={() => setSplitTarget(h.stockCode)}
+                          className="text-xs text-gray-300 hover:text-amber-500 transition-colors"
+                          title="調整股票分割"
+                        >
+                          分割
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {editingAlert === h.stockCode && (
@@ -247,6 +349,12 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
                 >
                   {(alert.target || alert.stopLoss) ? '✏️ 編輯警示' : '＋設定警示'}
                 </button>
+                <button
+                  onClick={() => setSplitTarget(h.stockCode)}
+                  className="text-xs text-gray-300 hover:text-amber-500 transition-colors"
+                >
+                  分割
+                </button>
               </div>
               {expandedChart === h.stockCode && (
                 pricesByStock.has(h.stockCode) ? (
@@ -274,5 +382,6 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
         })}
       </div>
     </div>
+    </>
   )
 }
