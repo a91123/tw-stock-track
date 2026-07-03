@@ -680,7 +680,7 @@ export default function App() {
           >
             ⚙️ <span>設定</span>
           </button>
-          <p className="text-center text-xs text-slate-600 pt-1 select-none">v1.1.2</p>
+          <p className="text-center text-xs text-slate-600 pt-1 select-none">v1.1.3</p>
         </div>
       </aside>
 
@@ -789,7 +789,7 @@ export default function App() {
 
         <footer className="text-center py-6 text-xs text-gray-300 space-y-1">
           <p>股價資料來源：台灣證券交易所、櫃買中心｜資料僅供參考，不構成投資建議</p>
-          <p>v1.1.2</p>
+          <p>v1.1.3</p>
         </footer>
       </div>
 
