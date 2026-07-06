@@ -175,24 +175,38 @@ export default function App() {
     })
   }, [transactions, stockNames, priceAlerts, user])
 
-  // 每檔股票記錄「自己的」第一筆交易日
+  // 每檔股票記錄「自己的」第一筆交易日；已出清的股票額外記下最後一筆交易日 —
+  // 之後不需要抓到今天，賣掉那天以後的股價從未被損益計算讀取過
   const fetchKey = useMemo(() => {
     if (transactions.length === 0) return ''
     const minByCode = new Map<string, string>()
+    const maxByCode = new Map<string, string>()
+    const sharesByCode = new Map<string, number>()
     for (const t of transactions) {
-      const cur = minByCode.get(t.stockCode)
-      if (!cur || t.date < cur) minByCode.set(t.stockCode, t.date)
+      const curMin = minByCode.get(t.stockCode)
+      if (!curMin || t.date < curMin) minByCode.set(t.stockCode, t.date)
+      const curMax = maxByCode.get(t.stockCode)
+      if (!curMax || t.date > curMax) maxByCode.set(t.stockCode, t.date)
+      if (t.type === 'buy' || t.type === 'stockDividend') {
+        sharesByCode.set(t.stockCode, (sharesByCode.get(t.stockCode) ?? 0) + t.shares)
+      } else if (t.type === 'sell') {
+        sharesByCode.set(t.stockCode, (sharesByCode.get(t.stockCode) ?? 0) - t.shares)
+      }
     }
     return [...minByCode.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([code, date]) => `${code}:${date}`)
+      .map(([code, minDate]) => {
+        const held = (sharesByCode.get(code) ?? 0) > 0
+        const maxDate = held ? '' : (maxByCode.get(code) ?? '')
+        return `${code}:${minDate}:${maxDate}`
+      })
       .join(',')
   }, [transactions])
 
-  function parseFetchKey(key: string): { code: string; minDate: string }[] {
+  function parseFetchKey(key: string): { code: string; minDate: string; maxDate?: string }[] {
     return key.split(',').map(pair => {
-      const [code, minDate] = pair.split(':')
-      return { code, minDate }
+      const [code, minDate, maxDate] = pair.split(':')
+      return { code, minDate, maxDate: maxDate || undefined }
     })
   }
 
@@ -204,7 +218,7 @@ export default function App() {
     void loadPrices(parseFetchKey(fetchKey), false)
   }, [fetchKey])
 
-  async function loadPrices(stocks: { code: string; minDate: string }[], force: boolean) {
+  async function loadPrices(stocks: { code: string; minDate: string; maxDate?: string }[], force: boolean) {
     setLoading(true)
     setError(null)
     const errors: string[] = []
@@ -215,9 +229,9 @@ export default function App() {
 
     try {
       await Promise.allSettled(
-        stocks.map(async ({ code, minDate }) => {
+        stocks.map(async ({ code, minDate, maxDate }) => {
           try {
-            const prices = await fetchStockPrices(code, minDate, force)
+            const prices = await fetchStockPrices(code, minDate, force, maxDate)
             const m = new Map<string, number>()
             prices.forEach(p => m.set(p.date, p.close))
             newMap.set(code, m)
@@ -303,8 +317,10 @@ export default function App() {
 
     async function tick() {
       if (!isTradingHours() || document.hidden) return
+      const heldCodes = new Set(getHeldCodes())
       const symbols: StockSymbol[] = []
       pricesByStock.forEach((_, code) => {
+        if (!heldCodes.has(code)) return // 已出清的股票不需要即時報價
         const market = getStockMarket(code)
         if (market) symbols.push({ code, market })
       })

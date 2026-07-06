@@ -171,12 +171,14 @@ async function fetchTPExMonth(stockCode: string, year: number, month: number): P
   return prices
 }
 
-function monthsBetween(fromDate: string): { year: number; month: number }[] {
+// toDate 省略時抓到本月（持有中的股票）；有給則抓到該月為止（已出清的股票只需要抓到最後
+// 一筆交易當月，之後的股價從未被損益計算用到，抓了也是白抓，還會多打一次即時 API）
+function monthsBetween(fromDate: string, toDate?: string): { year: number; month: number }[] {
   const from = new Date(fromDate)
-  const today = new Date()
+  const to = toDate ? new Date(toDate) : new Date()
   const months: { year: number; month: number }[] = []
   let cur = new Date(from.getFullYear(), from.getMonth(), 1)
-  const end = new Date(today.getFullYear(), today.getMonth(), 1)
+  const end = new Date(to.getFullYear(), to.getMonth(), 1)
   while (cur <= end) {
     months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 })
     cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
@@ -187,11 +189,12 @@ function monthsBetween(fromDate: string): { year: number; month: number }[] {
 async function collectAllMonths(
   fetcher: (year: number, month: number) => Promise<StockPrice[]>,
   fromDate: string,
+  toDate?: string,
 ): Promise<StockPrice[]> {
   // 並發發出即可 — throttle() 會把實際請求排成序列；已快取的月份直接返回不佔節流額度
   // 注意：不要過濾掉 fromDate 之前的價格 — 若第一筆交易是「今天」（尚無收盤價），
   // 過濾會把僅有的資料全部丟光，誤判成「查無股票」。損益計算會自行對齊交易日。
-  const results = await Promise.all(monthsBetween(fromDate).map(({ year, month }) => fetcher(year, month)))
+  const results = await Promise.all(monthsBetween(fromDate, toDate).map(({ year, month }) => fetcher(year, month)))
   return results
     .flat()
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -208,6 +211,7 @@ export async function fetchStockPrices(
   stockCode: string,
   fromDate: string,
   forceRefresh = false,
+  toDate?: string,
 ): Promise<StockPrice[]> {
   // 強制更新只需要丟掉「當月」快取 — 過去月份的歷史資料不會變
   if (forceRefresh) {
@@ -219,13 +223,13 @@ export async function fetchStockPrices(
   }
 
   // 先查證交所（上市），查無資料再查櫃買中心（上櫃）
-  let prices = await collectAllMonths((y, m) => fetchTWSEMonth(stockCode, y, m), fromDate)
+  let prices = await collectAllMonths((y, m) => fetchTWSEMonth(stockCode, y, m), fromDate, toDate)
   if (prices.length > 0) {
     stockMarkets.set(stockCode, 'tse')
     return prices
   }
 
-  prices = await collectAllMonths((y, m) => fetchTPExMonth(stockCode, y, m), fromDate)
+  prices = await collectAllMonths((y, m) => fetchTPExMonth(stockCode, y, m), fromDate, toDate)
   if (prices.length > 0) {
     stockMarkets.set(stockCode, 'otc')
     return prices
