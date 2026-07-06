@@ -1,9 +1,11 @@
 import { Transaction, DailyPortfolioData, PortfolioSummaryData, StockDetail } from '../types'
 
+// 除息日「前」的持股數（不含 date 當天的交易）。
+// 台股規則：除息日前一日收盤持有才配息；除息日當天買進不配、當天賣出仍配。
 export function getSharesOnDate(transactions: Transaction[], stockCode: string, date: string): number {
   let shares = 0
   for (const tx of transactions) {
-    if (tx.stockCode !== stockCode || tx.date > date) continue
+    if (tx.stockCode !== stockCode || tx.date >= date) continue
     if (tx.type === 'buy') shares += tx.shares
     else if (tx.type === 'sell') shares -= tx.shares
   }
