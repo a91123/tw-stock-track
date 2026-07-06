@@ -86,6 +86,8 @@ function parseType(raw: string): ParsedTx['type'] | null {
   const v = raw.toLowerCase()
   if (v === 'buy' || /買/.test(raw)) return 'buy'
   if (v === 'sell' || /賣|融券/.test(raw)) return 'sell'
+  // 先判斷配股/股票股利（字面含「股利」，須排在現金股利判斷之前）
+  if (v === 'stockdividend' || /配股|股票股利|股票股息/.test(raw)) return 'stockDividend'
   if (v === 'dividend' || /股利|配息|股息|現金股利/.test(raw)) return 'dividend'
   // 券商「未實現/庫存明細」匯出：現股、融資都是持有中的買進部位
   if (/現股|融資/.test(raw)) return 'buy'
@@ -231,11 +233,12 @@ export function extractTxs(rows: string[][], mapping: CsvMapping): CsvParseResul
       stockCode = NAME_TO_CODE[get(cells, 'stockName')] ?? ''
     }
 
-    if (!type || !date || !(shares > 0) || !(price > 0)) {
+    const priceOk = type === 'stockDividend' || price > 0
+    if (!type || !date || !(shares > 0) || !priceOk) {
       skipped++
       continue
     }
-    txs.push({ stockCode, type, date, shares, price })
+    txs.push({ stockCode, type, date, shares, price: type === 'stockDividend' ? 0 : price })
   }
 
   return { txs, skipped }

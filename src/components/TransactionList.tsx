@@ -16,6 +16,7 @@ const TYPE_META: Record<string, { label: string; cls: string }> = {
   buy: { label: '買入', cls: 'bg-green-100 text-green-700' },
   sell: { label: '賣出', cls: 'bg-red-100 text-red-700' },
   dividend: { label: '股利', cls: 'bg-teal-100 text-teal-700' },
+  stockDividend: { label: '配股', cls: 'bg-blue-100 text-blue-700' },
 }
 
 export default function TransactionList({ transactions, stockNames, onDelete }: Props) {
@@ -67,9 +68,11 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
                     </td>
                     <td className="py-2 text-gray-500 text-xs">{fmtDate(tx.date)}</td>
                     <td className="py-2 text-right text-gray-700">{tx.shares.toLocaleString()}</td>
-                    <td className="py-2 text-right text-gray-700">{tx.price.toFixed(2)}</td>
                     <td className="py-2 text-right text-gray-700">
-                      {Math.round(tx.shares * tx.price).toLocaleString()}
+                      {tx.type === 'stockDividend' ? '—' : tx.price.toFixed(2)}
+                    </td>
+                    <td className="py-2 text-right text-gray-700">
+                      {tx.type === 'stockDividend' ? '—' : Math.round(tx.shares * tx.price).toLocaleString()}
                     </td>
                     <td className="py-2 text-right">
                       <button
@@ -99,7 +102,9 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
                     <span className="text-gray-400 text-xs">{fmtDate(tx.date)}</span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {tx.shares.toLocaleString()} 股 × {tx.price.toFixed(2)} ＝ {Math.round(tx.shares * tx.price).toLocaleString()}
+                    {tx.type === 'stockDividend'
+                      ? `${tx.shares.toLocaleString()} 股（配股）`
+                      : `${tx.shares.toLocaleString()} 股 × ${tx.price.toFixed(2)} ＝ ${Math.round(tx.shares * tx.price).toLocaleString()}`}
                   </div>
                 </div>
                 <button

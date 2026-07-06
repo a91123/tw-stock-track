@@ -49,8 +49,9 @@ const PROMPT = `你是台股交易紀錄解析器。請從這些券商 App 的�
 - date 一律輸出 YYYY-MM-DD。若截圖使用民國年（例如 114/06/10），請加 1911 轉成西元年（2025-06-10）。若紀錄只顯示月/日（例如 08/05），年份請參考畫面上的年份區段標題（例如「2024年」）。
 - shares 是「股數」。若截圖顯示的是張數（1 張 = 1000 股），請換算成股數。
 - price 是每股成交價格（元）。
-- type：買進/現買/融資買進 → buy；賣出/現賣/融券賣出 → sell。若截圖是「庫存明細」這類持股頁面，每筆持股明細視為一筆買進（buy）。
-- 股利／股息／現金股利／配息紀錄 → type 填 dividend。dividend 的 shares 填「配息基準股數（持有股數）」、price 填「每股現金股利（元）」；若截圖只顯示「總配息金額」而沒有每股金額，shares 填 1、price 填該筆總配息金額（讓 shares × price = 實領金額）。股票股利（配股）暫不支援，請略過。
+- type：買進/現買/融資買進 → buy；賣出/現賣/融券賣出 → sell。若截圖是「庫存明細」這類持股頁面，每筆持股明細視為一筆買進（buy），但成交價為 0 的明細例外（見下一條配股規則）。
+- 股利／股息／現金股利／配息紀錄 → type 填 dividend。dividend 的 shares 填「配息基準股數（持有股數）」、price 填「每股現金股利（元）」；若截圖只顯示「總配息金額」而沒有每股金額，shares 填 1、price 填該筆總配息金額（讓 shares × price = 實領金額）。
+- 股票股利／配股紀錄（庫存明細中常顯示為成交價 0 的一列，股數是配股增加的股數，例如 100、127 這類非整張的零股數字）→ type 填 stockDividend。shares 填「新增的股數」，price 固定填 0，不要歸類為 buy。
 - stockCode 只輸出代碼（例如 2330），不含股票名稱。若所有截圖中都找不到代碼，stockCode 輸出空字串，不要用名稱猜測。
 - 只擷取已成交的紀錄，忽略委託中、已取消的單。若無法辨識任何交易，回傳空陣列。`
 
@@ -60,7 +61,7 @@ const RESPONSE_SCHEMA = {
     type: 'OBJECT',
     properties: {
       stockCode: { type: 'STRING' },
-      type: { type: 'STRING', enum: ['buy', 'sell', 'dividend'] },
+      type: { type: 'STRING', enum: ['buy', 'sell', 'dividend', 'stockDividend'] },
       date: { type: 'STRING' },
       shares: { type: 'NUMBER' },
       price: { type: 'NUMBER' },

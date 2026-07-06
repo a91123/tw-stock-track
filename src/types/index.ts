@@ -1,7 +1,9 @@
-export type TransactionType = 'buy' | 'sell' | 'dividend'
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'stockDividend'
 
 // 'dividend'（現金股利）：shares = 配息基準股數、price = 每股現金股利，
 // shares × price = 現金股利總額；不影響持股數，只計入已實現損益。
+// 'stockDividend'（配股/股票股利）：shares = 新增股數，price 固定 0。
+// 不計現金流，只增加持股數並攤薄均價成本（總成本不變）。
 export interface Transaction {
   id: string
   stockCode: string

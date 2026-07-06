@@ -23,8 +23,9 @@ export default function TransactionForm({ onAdd }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const sharesNum = parseFloat(shares)
-    const priceNum = parseFloat(price)
-    if (!stockCode || !date || isNaN(sharesNum) || isNaN(priceNum) || sharesNum <= 0 || priceNum <= 0) return
+    const priceNum = type === 'stockDividend' ? 0 : parseFloat(price)
+    if (!stockCode || !date || isNaN(sharesNum) || sharesNum <= 0) return
+    if (type !== 'stockDividend' && (isNaN(priceNum) || priceNum <= 0)) return
     onAdd({
       stockCode: stockCode.trim().toUpperCase(),
       type,
@@ -85,6 +86,15 @@ export default function TransactionForm({ onAdd }: Props) {
               >
                 股利
               </button>
+              <button
+                type="button"
+                onClick={() => setType('stockDividend')}
+                className={`flex-1 text-sm font-medium transition-colors border-l border-gray-200 ${
+                  type === 'stockDividend' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                配股
+              </button>
             </div>
           </div>
         </div>
@@ -103,7 +113,7 @@ export default function TransactionForm({ onAdd }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">
-              {type === 'dividend' ? '配息股數' : '股數'}
+              {type === 'dividend' ? '配息股數' : type === 'stockDividend' ? '配股股數（新增股數）' : '股數'}
             </label>
             <input
               type="number"
@@ -117,26 +127,43 @@ export default function TransactionForm({ onAdd }: Props) {
               required
             />
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">
-              {type === 'dividend' ? '每股股利（元）' : '每股價格（元）'}
-            </label>
-            <input
-              type="number"
-              value={price}
-              onChange={e => setPrice(e.target.value)}
-              placeholder="例如: 550.00"
-              min="0.01"
-              step="0.01"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-              required
-            />
-          </div>
+          {type === 'stockDividend' ? (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">每股價格（元）</label>
+              <input
+                type="text"
+                value="配股不需填價格"
+                disabled
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                {type === 'dividend' ? '每股股利（元）' : '每股價格（元）'}
+              </label>
+              <input
+                type="number"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                placeholder="例如: 550.00"
+                min="0.01"
+                step="0.01"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                required
+              />
+            </div>
+          )}
         </div>
 
         {type === 'dividend' && (
           <p className="text-xs text-teal-600 -mt-1">
             股利：股數×每股股利＝實領金額。只知道總金額的話，股數填 1、每股股利填總金額即可。
+          </p>
+        )}
+        {type === 'stockDividend' && (
+          <p className="text-xs text-blue-600 -mt-1">
+            配股：填入除權後新增的股數即可，成本不變，均價會自動攤薄。
           </p>
         )}
 

@@ -62,7 +62,7 @@ function SplitDialog({
     : parseFloat(manualRatio)
 
   const affected = transactions.filter(
-    t => t.stockCode === code && !!activeDate && t.date <= activeDate && (t.type === 'buy' || t.type === 'sell'),
+    t => t.stockCode === code && !!activeDate && t.date <= activeDate && (t.type === 'buy' || t.type === 'sell' || t.type === 'stockDividend'),
   )
 
   function handleConfirm() {
@@ -142,11 +142,11 @@ function SplitDialog({
           <div className={`text-xs rounded-lg px-3 py-2 ${affected.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
             {affected.length > 0 ? (
               <>
-                ⚠ 將修改 {affected.length} 筆買賣交易：股數 ×{activeRatio}、單價 ÷{activeRatio}。
+                ⚠ 將修改 {affected.length} 筆買賣/配股交易：股數 ×{activeRatio}、單價 ÷{activeRatio}。
                 操作後若填錯，以相反比例（{activeRatio === 0 ? '—' : (1 / activeRatio).toFixed(4)}）再執行一次可還原。
               </>
             ) : (
-              '所選日期前無買賣交易，不會有任何變更。'
+              '所選日期前無買賣/配股交易，不會有任何變更。'
             )}
           </div>
         )}

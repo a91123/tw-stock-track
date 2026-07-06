@@ -55,10 +55,10 @@ function isValidTx(tx: ParsedTx): boolean {
   // 4 digits = stocks, 5-6 digits = ETFs (00878) / warrants, optional letter suffix (00878B)
   return (
     /^\d{4,6}[A-Z]?$/.test(tx.stockCode) &&
-    (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'dividend') &&
+    (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'dividend' || tx.type === 'stockDividend') &&
     /^\d{4}-\d{2}-\d{2}$/.test(tx.date) &&
     tx.shares > 0 &&
-    tx.price > 0
+    (tx.type === 'stockDividend' || tx.price > 0)
   )
 }
 
@@ -285,6 +285,12 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
             </div>
           )}
 
+          {parsed.some(t => t.type === 'stockDividend') && (
+            <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-700">
+              配股（配）：股數填「新增股數」，價格固定為 0，不影響已實現損益，會攤薄均價成本。
+            </div>
+          )}
+
           <div className="overflow-x-auto -mx-1">
             <table className="w-full text-xs">
               <thead>
@@ -311,14 +317,21 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
                       </td>
                       <td className="px-1 py-1">
                         <button
-                          onClick={() => updateRow(i, { type: tx.type === 'buy' ? 'sell' : tx.type === 'sell' ? 'dividend' : 'buy' })}
+                          onClick={() => updateRow(i, {
+                            type: tx.type === 'buy' ? 'sell'
+                              : tx.type === 'sell' ? 'dividend'
+                              : tx.type === 'dividend' ? 'stockDividend'
+                              : 'buy',
+                            ...(tx.type === 'dividend' ? { price: 0 } : {}),
+                          })}
                           className={`px-2 py-1 rounded font-medium ${
                             tx.type === 'buy' ? 'bg-green-100 text-green-700'
                               : tx.type === 'sell' ? 'bg-red-100 text-red-700'
+                              : tx.type === 'stockDividend' ? 'bg-blue-100 text-blue-700'
                               : 'bg-teal-100 text-teal-700'
                           }`}
                         >
-                          {tx.type === 'buy' ? '買' : tx.type === 'sell' ? '賣' : '息'}
+                          {tx.type === 'buy' ? '買' : tx.type === 'sell' ? '賣' : tx.type === 'stockDividend' ? '配' : '息'}
                         </button>
                       </td>
                       <td className="px-1 py-1">
@@ -338,12 +351,16 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
                         />
                       </td>
                       <td className="px-1 py-1">
-                        <input
-                          type="number"
-                          value={tx.price}
-                          onChange={e => updateRow(i, { price: Number(e.target.value) })}
-                          className="w-16 px-1 py-1 border border-gray-200 rounded"
-                        />
+                        {tx.type === 'stockDividend' ? (
+                          <span className="text-gray-300 px-1">—</span>
+                        ) : (
+                          <input
+                            type="number"
+                            value={tx.price}
+                            onChange={e => updateRow(i, { price: Number(e.target.value) })}
+                            className="w-16 px-1 py-1 border border-gray-200 rounded"
+                          />
+                        )}
                       </td>
                       <td className="px-1 py-1">
                         <button onClick={() => removeRow(i)} className="text-gray-300 hover:text-red-500">✕</button>

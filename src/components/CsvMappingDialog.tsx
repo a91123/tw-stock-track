@@ -23,6 +23,7 @@ const FIXED_TYPES = [
   { value: 'buy', label: '整檔皆為買入' },
   { value: 'sell', label: '整檔皆為賣出' },
   { value: 'dividend', label: '整檔皆為股利' },
+  { value: 'stockDividend', label: '整檔皆為配股' },
 ] as const
 
 export default function CsvMappingDialog({ analysis, onConfirm, onCancel }: Props) {

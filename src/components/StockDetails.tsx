@@ -28,7 +28,7 @@ function PnL({ value, suffix = '', decimals = 0 }: { value: number | null; suffi
   )
 }
 
-const TYPE_LABEL: Record<string, string> = { buy: '買入', sell: '賣出', dividend: '股利' }
+const TYPE_LABEL: Record<string, string> = { buy: '買入', sell: '賣出', dividend: '股利', stockDividend: '配股' }
 
 function TxSubList({ d }: { d: StockDetail }) {
   return (
@@ -39,6 +39,7 @@ function TxSubList({ d }: { d: StockDetail }) {
             <span className={`px-1.5 py-0.5 rounded font-medium ${
               tx.type === 'buy' ? 'bg-green-100 text-green-700'
                 : tx.type === 'sell' ? 'bg-red-100 text-red-700'
+                : tx.type === 'stockDividend' ? 'bg-blue-100 text-blue-700'
                 : 'bg-teal-100 text-teal-700'
             }`}>
               {TYPE_LABEL[tx.type]}
@@ -46,8 +47,9 @@ function TxSubList({ d }: { d: StockDetail }) {
             <span className="text-gray-500">{fmtDate(tx.date)}</span>
           </div>
           <span className="text-gray-600 tabular-nums">
-            {tx.shares.toLocaleString()} {tx.type === 'dividend' ? '股 × 配' : '股 ×'} {tx.price.toFixed(2)}
-            {' ＝ '}{fmtNum(Math.round(tx.shares * tx.price))}
+            {tx.type === 'stockDividend'
+              ? `${tx.shares.toLocaleString()} 股`
+              : <>{tx.shares.toLocaleString()} {tx.type === 'dividend' ? '股 × 配' : '股 ×'} {tx.price.toFixed(2)}{' ＝ '}{fmtNum(Math.round(tx.shares * tx.price))}</>}
           </span>
         </div>
       ))}

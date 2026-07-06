@@ -6,7 +6,7 @@ export function getSharesOnDate(transactions: Transaction[], stockCode: string, 
   let shares = 0
   for (const tx of transactions) {
     if (tx.stockCode !== stockCode || tx.date >= date) continue
-    if (tx.type === 'buy') shares += tx.shares
+    if (tx.type === 'buy' || tx.type === 'stockDividend') shares += tx.shares
     else if (tx.type === 'sell') shares -= tx.shares
   }
   return Math.max(0, Math.round(shares))
@@ -33,7 +33,7 @@ function applyTransactionsUpTo(
     .filter(t => t.date <= date)
     .sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date)
-      return a.type === 'buy' ? -1 : 1 // buys before sells on same day
+      return a.type === 'sell' ? 1 : -1 // 賣出以外（含配股）都先處理，確保同日股數已到位
     })
 
   for (const tx of relevant) {
@@ -45,6 +45,9 @@ function applyTransactionsUpTo(
     if (tx.type === 'dividend') {
       // 現金股利：直接計入已實現損益，不影響持股
       realizedPnL += amount
+    } else if (tx.type === 'stockDividend') {
+      // 配股：新增股數、成本 0，等同攤薄均價（總成本不變、總股數增加）
+      if (tx.shares > 0) lots.push({ shares: tx.shares, costPerShare: 0 })
     } else if (tx.type === 'buy') {
       // 買入手續費攤入成本
       const fee = fees.enabled ? tradeFee(amount, fees.discount) : 0
@@ -196,7 +199,7 @@ export function getStockDetails(
   byCode.forEach((txs, stockCode) => {
     const sorted = [...txs].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date)
-      return a.type === 'buy' ? -1 : 1
+      return a.type === 'sell' ? 1 : -1
     })
 
     const lots: Lot[] = []
@@ -208,6 +211,8 @@ export function getStockDetails(
       const amount = tx.shares * tx.price
       if (tx.type === 'dividend') {
         dividendTotal += amount
+      } else if (tx.type === 'stockDividend') {
+        if (tx.shares > 0) lots.push({ shares: tx.shares, costPerShare: 0 })
       } else if (tx.type === 'buy') {
         const fee = fees.enabled ? tradeFee(amount, fees.discount) : 0
         lots.push({ shares: tx.shares, costPerShare: (amount + fee) / tx.shares })

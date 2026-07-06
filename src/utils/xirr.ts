@@ -4,6 +4,7 @@
 //   - 買入：流出（負），金額 = 成交金額 + 手續費
 //   - 賣出：流入（正），金額 = 成交金額 − 手續費 − 證交稅
 //   - 現金股利：流入（正）
+//   - 配股：無現金流，僅增加股數（影響期末市值）
 //   - 期末：把「目前持股市值」當成一筆今日的流入（正）
 //
 // 解出 r 使 Σ amount_i / (1+r)^(years_i) = 0，years 以 365 天為一年。
@@ -38,7 +39,7 @@ export function buildCashFlows(
 
   const sorted = [...transactions].sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date)
-    return a.type === 'buy' ? -1 : 1
+    return a.type === 'sell' ? 1 : -1
   })
 
   for (const tx of sorted) {
@@ -51,6 +52,9 @@ export function buildCashFlows(
       const cost = fees.enabled ? tradeFee(amount, fees.discount) + sellTax(amount, tx.stockCode) : 0
       flows.push({ date: tx.date, amount: amount - cost })
       lots.set(tx.stockCode, (lots.get(tx.stockCode) ?? 0) - tx.shares)
+    } else if (tx.type === 'stockDividend') {
+      // 配股：無現金流，僅增加期末市值計算用的股數
+      lots.set(tx.stockCode, (lots.get(tx.stockCode) ?? 0) + tx.shares)
     } else {
       // 現金股利
       flows.push({ date: tx.date, amount })

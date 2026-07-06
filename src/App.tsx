@@ -112,7 +112,7 @@ export default function App() {
   function getHeldCodes(): string[] {
     const sharesMap: Record<string, number> = {}
     for (const t of transactions) {
-      if (t.type === 'buy') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) + t.shares
+      if (t.type === 'buy' || t.type === 'stockDividend') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) + t.shares
       else if (t.type === 'sell') sharesMap[t.stockCode] = (sharesMap[t.stockCode] ?? 0) - t.shares
     }
     return Object.entries(sharesMap).filter(([, s]) => s > 0).map(([c]) => c)
@@ -279,7 +279,7 @@ export default function App() {
   function handleSplitAdjust(code: string, splitDate: string, ratio: number) {
     setTransactions(prev => prev.map(tx => {
       if (tx.stockCode !== code || tx.date > splitDate) return tx
-      if (tx.type !== 'buy' && tx.type !== 'sell') return tx
+      if (tx.type !== 'buy' && tx.type !== 'sell' && tx.type !== 'stockDividend') return tx
       return {
         ...tx,
         shares: Math.round(tx.shares * ratio * 1e6) / 1e6,
