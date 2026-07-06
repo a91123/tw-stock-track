@@ -60,7 +60,7 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
               <tbody>
                 {sorted.map(tx => (
                   <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 group">
-                    <td className="py-2 font-semibold text-gray-900 truncate">{tx.stockCode}</td>
+                    <td className="py-2 font-semibold text-gray-900 truncate" title={tx.stockCode}>{tx.stockCode}</td>
                     <td className="py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${TYPE_META[tx.type].cls}`}>
                         {TYPE_META[tx.type].label}
