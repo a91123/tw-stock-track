@@ -28,6 +28,7 @@ import { PortfolioContext } from './services/gemini'
 import { fetchDividends, clearDividendCache } from './services/dividends'
 import AllocationChart from './components/AllocationChart'
 import BenchmarkComparison from './components/BenchmarkComparison'
+import StockPerformanceTable from './components/StockPerformanceTable'
 import AnnualReport from './components/AnnualReport'
 import DCACalculator from './components/DCACalculator'
 import DRIPCalculator from './components/DRIPCalculator'
@@ -669,6 +670,9 @@ export default function App() {
               onSetAlert={setAlert}
               onSplitAdjust={handleSplitAdjust}
             />
+          )}
+          {holdings.length > 0 && (
+            <StockPerformanceTable holdings={holdings} pricesByStock={pricesByStock} names={stockNames} />
           )}
           {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
           {holdings.length === 0 && stockDetails.length === 0 && (
