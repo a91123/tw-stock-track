@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { StockDetail } from '../types'
+import { StockDetail, StockLot } from '../types'
 import EditableName from './EditableName'
 
 interface Props {
@@ -53,6 +53,61 @@ function TxSubList({ d }: { d: StockDetail }) {
           </span>
         </div>
       ))}
+    </div>
+  )
+}
+
+function LotList({ lots }: { lots: StockLot[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs min-w-[480px]">
+        <thead>
+          <tr className="text-gray-400 text-left border-b border-gray-100">
+            <th className="py-1 font-medium">買入日期</th>
+            <th className="py-1 font-medium text-right">股數</th>
+            <th className="py-1 font-medium text-right">成本價</th>
+            <th className="py-1 font-medium text-right">市值</th>
+            <th className="py-1 font-medium text-right">未實現損益</th>
+            <th className="py-1 font-medium text-right">報酬率</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lots.map((lot, i) => (
+            <tr key={i} className="border-b border-gray-50 last:border-0">
+              <td className="py-1.5 text-gray-600 whitespace-nowrap">
+                {fmtDate(lot.date)}
+                {lot.costPerShare === 0 && (
+                  <span className="ml-1.5 px-1 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">配股</span>
+                )}
+              </td>
+              <td className="py-1.5 text-right text-gray-700 tabular-nums">{lot.shares.toLocaleString()}</td>
+              <td className="py-1.5 text-right text-gray-700 tabular-nums">{lot.costPerShare.toFixed(2)}</td>
+              <td className="py-1.5 text-right text-gray-700 tabular-nums">
+                {lot.marketValue !== null ? fmtNum(Math.round(lot.marketValue)) : '—'}
+              </td>
+              <td className="py-1.5 text-right"><PnL value={lot.unrealizedPnL} /></td>
+              <td className="py-1.5 text-right"><PnL value={lot.returnRate} suffix="%" decimals={2} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ExpandedPanel({ d }: { d: StockDetail }) {
+  return (
+    <div className="space-y-3">
+      {d.totalShares > 0 && d.lots.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-400 mb-1">目前持股明細（依買入批次，未實現損益以現價估算，不含息）</p>
+          <LotList lots={d.lots} />
+        </div>
+      )}
+      <div>
+        <p className="text-xs text-gray-400 mb-1">歷次交易</p>
+        <TxSubList d={d} />
+      </div>
     </div>
   )
 }
@@ -116,7 +171,7 @@ export default function StockDetails({ details, names, onRename }: Props) {
                 </tr>
                 {expanded.has(d.stockCode) && (
                   <tr>
-                    <td colSpan={7} className="pb-3 px-1"><TxSubList d={d} /></td>
+                    <td colSpan={7} className="pb-3 px-1"><ExpandedPanel d={d} /></td>
                   </tr>
                 )}
               </Fragment>
@@ -145,7 +200,7 @@ export default function StockDetails({ details, names, onRename }: Props) {
               <div className="flex justify-between"><span className="text-gray-400">報酬率</span><PnL value={d.returnRate} suffix="%" decimals={2} /></div>
               <div className="flex justify-between col-span-2"><span className="text-gray-400">年化報酬率</span><PnL value={d.annualizedReturn} suffix="%" decimals={1} /></div>
             </div>
-            {expanded.has(d.stockCode) && <div className="mt-3"><TxSubList d={d} /></div>}
+            {expanded.has(d.stockCode) && <div className="mt-3"><ExpandedPanel d={d} /></div>}
           </div>
         ))}
       </div>

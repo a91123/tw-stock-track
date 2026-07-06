@@ -39,6 +39,16 @@ export interface PortfolioSummaryData {
   returnRate: number
 }
 
+// 目前持股的單一批次（尚未賣出的買入/配股 lot）
+export interface StockLot {
+  date: string                 // 買入/配股日期
+  shares: number                // 剩餘股數
+  costPerShare: number          // 該批次每股成本（配股批次為 0）
+  marketValue: number | null
+  unrealizedPnL: number | null
+  returnRate: number | null     // 成本為 0 時無意義，回傳 null
+}
+
 // 個股損益明細（含已出清的股票，realizedPnL 仍保留）
 export interface StockDetail {
   stockCode: string
@@ -57,4 +67,5 @@ export interface StockDetail {
   annualizedReturn: number | null // 個股 XIRR
   firstDate: string
   transactions: Transaction[]  // 該股票的所有交易（已依日期排序）
+  lots: StockLot[]             // 目前持股明細，依批次日期新到舊排序
 }

@@ -1,4 +1,4 @@
-import { Transaction, DailyPortfolioData, PortfolioSummaryData, StockDetail } from '../types'
+import { Transaction, DailyPortfolioData, PortfolioSummaryData, StockDetail, StockLot } from '../types'
 
 // 除息日「前」的持股數（不含 date 當天的交易）。
 // 台股規則：除息日前一日收盤持有才配息；除息日當天買進不配、當天賣出仍配。
@@ -17,6 +17,7 @@ import { annualizedReturn } from './xirr'
 interface Lot {
   shares: number
   costPerShare: number
+  date?: string // 僅 getStockDetails 用於呈現目前持股明細，其餘用途不設定
 }
 
 type PositionMap = Map<string, Lot[]>
@@ -212,10 +213,10 @@ export function getStockDetails(
       if (tx.type === 'dividend') {
         dividendTotal += amount
       } else if (tx.type === 'stockDividend') {
-        if (tx.shares > 0) lots.push({ shares: tx.shares, costPerShare: 0 })
+        if (tx.shares > 0) lots.push({ shares: tx.shares, costPerShare: 0, date: tx.date })
       } else if (tx.type === 'buy') {
         const fee = fees.enabled ? tradeFee(amount, fees.discount) : 0
-        lots.push({ shares: tx.shares, costPerShare: (amount + fee) / tx.shares })
+        lots.push({ shares: tx.shares, costPerShare: (amount + fee) / tx.shares, date: tx.date })
         totalBuyCost += amount + fee
       } else {
         let remaining = tx.shares
@@ -243,6 +244,26 @@ export function getStockDetails(
     const totalPnL = unrealizedPnL !== null ? unrealizedPnL + realizedPnL : null
     const returnRate = totalPnL !== null && totalBuyCost > 0 ? (totalPnL / totalBuyCost) * 100 : null
 
+    // 目前持股明細：尚未賣出的每一批次（依買入/配股日期），新到舊排序
+    const stockLots: StockLot[] = lots
+      .filter(l => l.shares > 0)
+      .map(l => {
+        const cost = l.shares * l.costPerShare
+        const lotMarketValue = currentPrice !== null ? l.shares * currentPrice : null
+        const lotUnrealizedPnL = lotMarketValue !== null ? lotMarketValue - cost : null
+        // 配股批次成本為 0，報酬率無意義，顯示「—」而非誤導性的 0%
+        const lotReturnRate = lotUnrealizedPnL !== null && cost > 0 ? (lotUnrealizedPnL / cost) * 100 : null
+        return {
+          date: l.date ?? '',
+          shares: l.shares,
+          costPerShare: l.costPerShare,
+          marketValue: lotMarketValue,
+          unrealizedPnL: lotUnrealizedPnL,
+          returnRate: lotReturnRate,
+        }
+      })
+      .sort((a, b) => b.date.localeCompare(a.date))
+
     details.push({
       stockCode,
       totalShares,
@@ -260,6 +281,7 @@ export function getStockDetails(
       annualizedReturn: annualizedReturn(txs, currentPrices, fees),
       firstDate: sorted[0]?.date ?? '',
       transactions: sorted,
+      lots: stockLots,
     })
   })
 
