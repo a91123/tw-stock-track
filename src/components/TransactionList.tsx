@@ -44,7 +44,7 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden sm:block overflow-y-auto max-h-72">
+          <div className="hidden sm:block overflow-y-auto max-h-72 scrollbar-thin">
             <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
@@ -90,7 +90,7 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
           </div>
 
           {/* Mobile card list */}
-          <div className="sm:hidden space-y-2 max-h-72 overflow-y-auto">
+          <div className="sm:hidden space-y-2 max-h-72 overflow-y-auto scrollbar-thin">
             {sorted.map(tx => (
               <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                 <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${TYPE_META[tx.type].cls}`}>

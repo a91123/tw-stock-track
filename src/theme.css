@@ -90,6 +90,17 @@
   border-color: #334f6a;
 }
 
+/* 細滾動條（深色模式） */
+[data-dark="true"] .scrollbar-thin {
+  scrollbar-color: #334f6a transparent;
+}
+[data-dark="true"] .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #334f6a;
+}
+[data-dark="true"] .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #4a6278;
+}
+
 /* Recharts 深色模式：格線調暗、tooltip 換深色底 */
 [data-dark="true"] .recharts-cartesian-grid-horizontal line,
 [data-dark="true"] .recharts-cartesian-grid-vertical line {
