@@ -6,7 +6,26 @@ import {
   parseScreenshots,
   loadGeminiKey,
 } from '../services/gemini'
-import { parseCsv } from '../utils/csv'
+import { CsvAnalysis, CsvMapping, CsvParseResult, extractTxs, importCsv } from '../utils/csv'
+import CsvMappingDialog from './CsvMappingDialog'
+
+// 使用者手動設定的欄位對應，以表頭簽名為 key 記在本機
+const MAPPINGS_KEY = 'csv_col_mappings'
+
+function loadSavedMappings(): Record<string, CsvMapping> {
+  try {
+    return JSON.parse(localStorage.getItem(MAPPINGS_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function saveMapping(signature: string, mapping: CsvMapping) {
+  if (!signature) return
+  try {
+    localStorage.setItem(MAPPINGS_KEY, JSON.stringify({ ...loadSavedMappings(), [signature]: mapping }))
+  } catch { /* ignore quota */ }
+}
 
 interface Props {
   onAddMany: (txs: Omit<Transaction, 'id'>[]) => void
@@ -52,6 +71,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParsedTx[] | null>(null)
+  const [mappingAnalysis, setMappingAnalysis] = useState<CsvAnalysis | null>(null)
   const [parsedSource, setParsedSource] = useState<'截圖匯入' | 'CSV 匯入'>('截圖匯入')
   const [bulkCode, setBulkCode] = useState('')
 
@@ -89,6 +109,22 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
     }
   }
 
+  function presentCsvResult({ txs, skipped }: CsvParseResult, extraNotice?: string) {
+    if (txs.length === 0) {
+      setError('CSV 裡沒有可辨識的交易資料，請確認格式（代碼,類型,日期,股數,價格）')
+      return
+    }
+    const dupeCount = txs.filter(t => existingSet.has(txFingerprint(t))).length
+    const fresh = txs.filter(t => !existingSet.has(txFingerprint(t)))
+    const notices = []
+    if (extraNotice) notices.push(extraNotice)
+    if (skipped > 0) notices.push(`略過 ${skipped} 列無法解析`)
+    if (dupeCount > 0) notices.push(`過濾 ${dupeCount} 筆重複`)
+    if (notices.length > 0) setNotice(notices.join('，'))
+    setParsedSource('CSV 匯入')
+    setParsed(fresh.length > 0 ? fresh : txs)
+  }
+
   async function handleCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -97,24 +133,26 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
     setError(null)
     setNotice(null)
     setParsed(null)
+    setMappingAnalysis(null)
     try {
-      const { txs, skipped } = parseCsv(await file.text())
-      if (txs.length === 0) {
-        setError('CSV 裡沒有可辨識的交易資料，請確認格式（代碼,類型,日期,股數,價格）')
+      const imported = importCsv(await file.text(), loadSavedMappings())
+      if (imported.kind === 'needs-mapping') {
+        setMappingAnalysis(imported.analysis)
         return
       }
-      const dupeCount = txs.filter(t => existingSet.has(txFingerprint(t))).length
-      const fresh = txs.filter(t => !existingSet.has(txFingerprint(t)))
-      const notices = []
-      if (skipped > 0) notices.push(`略過 ${skipped} 列無法解析`)
-      if (dupeCount > 0) notices.push(`過濾 ${dupeCount} 筆重複`)
-      if (notices.length > 0) setNotice(notices.join('，'))
-      setParsedSource('CSV 匯入')
-      setParsed(fresh.length > 0 ? fresh : txs)
+      presentCsvResult(imported.result, imported.usedSavedMapping ? '已套用先前儲存的欄位對應' : undefined)
     } catch (err) {
       Sentry.captureException(err, { tags: { feature: 'csv-import' } })
       setError('CSV 讀取失敗，請確認檔案內容')
     }
+  }
+
+  function handleMappingConfirm(mapping: CsvMapping) {
+    if (!mappingAnalysis) return
+    saveMapping(mappingAnalysis.signature, mapping)
+    const result = extractTxs(mappingAnalysis.rows, mapping)
+    setMappingAnalysis(null)
+    presentCsvResult(result)
   }
 
   function updateRow(i: number, patch: Partial<ParsedTx>) {
@@ -171,7 +209,7 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
         onChange={handleCsv}
       />
 
-      {!parsed && (
+      {!parsed && !mappingAnalysis && (
         <div className="space-y-2">
           {apiKey ? (
             <button
@@ -197,13 +235,21 @@ export default function ImportTransactions({ onAddMany, onOpenSettings, existing
             📄 匯入 CSV 檔
           </button>
           <p className="text-xs text-gray-400">
-            CSV 格式：代碼,類型,日期,股數,價格（類型填 買/賣 或 buy/sell；日期支援西元與民國年）
+            CSV 支援大多數券商匯出格式，會自動偵測表頭與欄位；認不得的格式會請你手動對應一次，之後自動套用
           </p>
         </div>
       )}
 
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
       {notice && <p className="mt-2 text-xs text-amber-600">{notice}</p>}
+
+      {mappingAnalysis && (
+        <CsvMappingDialog
+          analysis={mappingAnalysis}
+          onConfirm={handleMappingConfirm}
+          onCancel={() => { setMappingAnalysis(null); setError(null); setNotice(null) }}
+        />
+      )}
 
       {parsed && (
         <div className="space-y-2">
