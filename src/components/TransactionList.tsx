@@ -44,29 +44,29 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden sm:block overflow-auto max-h-72">
-            <table className="w-full text-sm min-w-[420px]">
+          <div className="hidden sm:block overflow-y-auto max-h-72">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
-                  <th className="pb-2 font-medium">代碼</th>
-                  <th className="pb-2 font-medium">類型</th>
-                  <th className="pb-2 font-medium">日期</th>
-                  <th className="pb-2 font-medium text-right">股數</th>
-                  <th className="pb-2 font-medium text-right">價格</th>
-                  <th className="pb-2 font-medium text-right">金額</th>
-                  <th className="pb-2 w-6"></th>
+                  <th className="pb-2 font-medium w-[15%]">代碼</th>
+                  <th className="pb-2 font-medium w-[13%]">類型</th>
+                  <th className="pb-2 font-medium w-[17%]">日期</th>
+                  <th className="pb-2 font-medium text-right w-[16%]">股數</th>
+                  <th className="pb-2 font-medium text-right w-[16%]">價格</th>
+                  <th className="pb-2 font-medium text-right w-[18%]">金額</th>
+                  <th className="pb-2 w-[5%]"></th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.map(tx => (
                   <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50 group">
-                    <td className="py-2 font-semibold text-gray-900">{tx.stockCode}</td>
+                    <td className="py-2 font-semibold text-gray-900 truncate">{tx.stockCode}</td>
                     <td className="py-2">
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${TYPE_META[tx.type].cls}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${TYPE_META[tx.type].cls}`}>
                         {TYPE_META[tx.type].label}
                       </span>
                     </td>
-                    <td className="py-2 text-gray-500 text-xs">{fmtDate(tx.date)}</td>
+                    <td className="py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(tx.date)}</td>
                     <td className="py-2 text-right text-gray-700">{tx.shares.toLocaleString()}</td>
                     <td className="py-2 text-right text-gray-700">
                       {tx.type === 'stockDividend' ? '—' : tx.price.toFixed(2)}
@@ -90,7 +90,7 @@ export default function TransactionList({ transactions, stockNames, onDelete }: 
           </div>
 
           {/* Mobile card list */}
-          <div className="sm:hidden space-y-2 max-h-72 overflow-auto">
+          <div className="sm:hidden space-y-2 max-h-72 overflow-y-auto">
             {sorted.map(tx => (
               <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                 <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${TYPE_META[tx.type].cls}`}>
