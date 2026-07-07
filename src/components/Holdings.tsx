@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { HoldingData } from '../utils/pnl'
-import { PriceAlert } from '../services/firestore'
+import { PriceAlert, AppliedSplit } from '../services/firestore'
 import { Transaction } from '../types'
 import EditableName from './EditableName'
 import StockChart from './StockChart'
@@ -12,6 +12,7 @@ interface Props {
   priceAlerts: Record<string, PriceAlert>
   pricesByStock: Map<string, Map<string, number>>
   transactions: Transaction[]
+  appliedSplits: Record<string, AppliedSplit[]>
   onRename: (code: string, name: string) => void
   onSetAlert: (code: string, alert: PriceAlert) => void
   onSplitAdjust: (code: string, splitDate: string, ratio: number) => void
@@ -39,11 +40,12 @@ function detectSplitsFromPriceMap(priceMap: Map<string, number>): SplitEvent[] {
 }
 
 function SplitDialog({
-  code, transactions, priceMap, onConfirm, onClose,
+  code, transactions, priceMap, history, onConfirm, onClose,
 }: {
   code: string
   transactions: Transaction[]
   priceMap: Map<string, number> | undefined
+  history: AppliedSplit[]
   onConfirm: (splitDate: string, ratio: number) => void
   onClose: () => void
 }) {
@@ -60,14 +62,24 @@ function SplitDialog({
   // Fallback manual state (used when auto-detect finds nothing)
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10))
 
+  // 同一個日期已經套用過分割 → 再套用一次股數會疊加，要求多勾一個確認才放行
+  const [confirmOverride, setConfirmOverride] = useState(false)
+
   const noData = !priceMap || priceMap.size === 0
 
   const activeDate = splits.length > 0 ? selected : manualDate
   const activeRatio = parseFloat(ratioInput)
+  const priorApplication = history.find(h => h.splitDate === activeDate)
 
   function selectSplit(s: SplitEvent) {
     setSelected(s.date)
     setRatioInput(String(Math.round(s.ratio * 10) / 10))
+    setConfirmOverride(false)
+  }
+
+  function selectManualDate(date: string) {
+    setManualDate(date)
+    setConfirmOverride(false)
   }
 
   const affected = transactions.filter(
@@ -76,11 +88,13 @@ function SplitDialog({
 
   function handleConfirm() {
     if (!activeDate || isNaN(activeRatio) || activeRatio <= 0 || activeRatio === 1) return
+    if (priorApplication && !confirmOverride) return
     onConfirm(activeDate, activeRatio)
     onClose()
   }
 
-  const canConfirm = affected.length > 0 && !isNaN(activeRatio) && activeRatio > 0 && activeRatio !== 1
+  const canConfirm = affected.length > 0 && !isNaN(activeRatio) && activeRatio > 0 && activeRatio !== 1 &&
+    (!priorApplication || confirmOverride)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -101,7 +115,7 @@ function SplitDialog({
               <input
                 type="date"
                 value={manualDate}
-                onChange={e => setManualDate(e.target.value)}
+                onChange={e => selectManualDate(e.target.value)}
                 max={new Date().toISOString().slice(0, 10)}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
               />
@@ -157,6 +171,25 @@ function SplitDialog({
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
               />
             </div>
+          </div>
+        )}
+
+        {!noData && priorApplication && (
+          <div className="text-xs rounded-lg px-3 py-2 bg-red-50 text-red-700 space-y-2">
+            <p>
+              ⚠️ 這個日期（{priorApplication.splitDate}）<strong>已經套用過分割</strong>
+              （比例 {priorApplication.ratio}，套用於 {new Date(priorApplication.appliedAt).toLocaleString('zh-TW')}）。
+              再次套用會在目前股數上<strong>疊加</strong>，不是取代 — 通常代表誤觸重複點擊。
+            </p>
+            <label className="flex items-center gap-2 cursor-pointer font-medium">
+              <input
+                type="checkbox"
+                checked={confirmOverride}
+                onChange={e => setConfirmOverride(e.target.checked)}
+                className="accent-red-600"
+              />
+              我確認要再次套用（股數會疊加，不是重新計算）
+            </label>
           </div>
         )}
 
@@ -257,7 +290,7 @@ function AlertEditor({ code, alert, onSave, onClose }: {
   )
 }
 
-export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, onRename, onSetAlert, onSplitAdjust }: Props) {
+export default function Holdings({ holdings, isRealtime, names, priceAlerts, pricesByStock, transactions, appliedSplits, onRename, onSetAlert, onSplitAdjust }: Props) {
   const [editingAlert, setEditingAlert] = useState<string | null>(null)
   const [expandedChart, setExpandedChart] = useState<string | null>(null)
   const [splitTarget, setSplitTarget] = useState<string | null>(null)
@@ -271,6 +304,7 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
         code={splitTarget}
         transactions={transactions}
         priceMap={pricesByStock.get(splitTarget)}
+        history={appliedSplits[splitTarget] ?? []}
         onConfirm={(splitDate, ratio) => onSplitAdjust(splitTarget, splitDate, ratio)}
         onClose={() => setSplitTarget(null)}
       />

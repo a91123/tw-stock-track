@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import * as Sentry from '@sentry/react'
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { auth, googleProvider } from './services/firebase'
-import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache, PriceAlert } from './services/firestore'
+import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache, PriceAlert, AppliedSplit } from './services/firestore'
 import { fetchStockNews, fetchAllHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, fetchTaiexPrices, getStockMarket } from './services/stockPrices'
@@ -72,6 +72,7 @@ export default function App() {
   const [newsSearchLoading, setNewsSearchLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [priceAlerts, setPriceAlerts] = useState<Record<string, PriceAlert>>({})
+  const [appliedSplits, setAppliedSplits] = useState<Record<string, AppliedSplit[]>>({})
   const [isDark, setIsDark] = useState(() => localStorage.getItem('ui-dark') === 'true')
 
   // Firebase auth 狀態監聽
@@ -92,6 +93,7 @@ export default function App() {
         setTransactions(data?.transactions ?? [])
         setStockNames(data?.stockNames ?? {})
         setPriceAlerts(data?.priceAlerts ?? {})
+        setAppliedSplits(data?.appliedSplits ?? {})
         setTab(data && data.transactions.length > 0 ? 'assets' : 'records')
       } catch (err) {
         Sentry.captureException(err, { tags: { feature: 'firestore-sync' } })
@@ -170,12 +172,12 @@ export default function App() {
   useEffect(() => {
     if (!user || loadingFromFirestore.current) return
     setSaveError(null)
-    void saveUserData(user.uid, { transactions, stockNames, priceAlerts }).catch(err => {
+    void saveUserData(user.uid, { transactions, stockNames, priceAlerts, appliedSplits }).catch(err => {
       console.error('[Firestore save error]', err)
       Sentry.captureException(err, { tags: { feature: 'firestore-save' } })
       setSaveError(`資料同步失敗：${err instanceof Error ? err.message : String(err)}`)
     })
-  }, [transactions, stockNames, priceAlerts, user])
+  }, [transactions, stockNames, priceAlerts, appliedSplits, user])
 
   // 每檔股票記錄「自己的」第一筆交易日；已出清的股票額外記下最後一筆交易日 —
   // 之後不需要抓到今天，賣掉那天以後的股價從未被損益計算讀取過
@@ -316,6 +318,10 @@ export default function App() {
         shares: Math.round(tx.shares * ratio * 1e6) / 1e6,
         price: Math.round((tx.price / ratio) * 1e4) / 1e4,
       }
+    }))
+    setAppliedSplits(prev => ({
+      ...prev,
+      [code]: [...(prev[code] ?? []), { splitDate, ratio, appliedAt: new Date().toISOString() }],
     }))
   }
 
@@ -682,6 +688,7 @@ export default function App() {
               priceAlerts={priceAlerts}
               pricesByStock={pricesByStock}
               transactions={transactions}
+              appliedSplits={appliedSplits}
               onRename={setStockName}
               onSetAlert={setAlert}
               onSplitAdjust={handleSplitAdjust}

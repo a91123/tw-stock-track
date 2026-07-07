@@ -8,10 +8,18 @@ export interface PriceAlert {
   stopLoss?: number // 停損價
 }
 
+// 分割/合股調整紀錄：套用一次就記一筆，用來防止同一個日期被重複套用而疊加股數
+export interface AppliedSplit {
+  splitDate: string
+  ratio: number
+  appliedAt: string // ISO timestamp
+}
+
 interface UserData {
   transactions: Transaction[]
   stockNames: Record<string, string>
   priceAlerts?: Record<string, PriceAlert>
+  appliedSplits?: Record<string, AppliedSplit[]>
 }
 
 export interface NewsCache {
