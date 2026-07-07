@@ -5,7 +5,7 @@ import { auth, googleProvider } from './services/firebase'
 import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache, PriceAlert } from './services/firestore'
 import { fetchStockNews, fetchAllHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
-import { fetchStockPrices, getStockMarket } from './services/stockPrices'
+import { fetchStockPrices, fetchTaiexPrices, getStockMarket } from './services/stockPrices'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
 import { isTradingHours } from './utils/market'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails, getSharesOnDate } from './utils/pnl'
@@ -52,6 +52,7 @@ export default function App() {
   const [stockNames, setStockNames] = useState<Record<string, string>>({})
   const [tab, setTab] = useState<TabKey>('records')
   const [pricesByStock, setPricesByStock] = useState<Map<string, Map<string, number>>>(new Map())
+  const [taiexPrices, setTaiexPrices] = useState<Map<string, number>>(new Map())
   const [feeSettings, setFeeSettings] = useState<FeeSettings>(() => loadFeeSettings())
   const [realtimePrices, setRealtimePrices] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(false)
@@ -229,8 +230,8 @@ export default function App() {
     const safetyTimer = setTimeout(() => setLoading(false), 30_000)
 
     try {
-      await Promise.allSettled(
-        stocks.map(async ({ code, minDate, maxDate }) => {
+      await Promise.allSettled([
+        ...stocks.map(async ({ code, minDate, maxDate }) => {
           try {
             const prices = await fetchStockPrices(code, minDate, force, maxDate)
             const m = new Map<string, number>()
@@ -241,7 +242,22 @@ export default function App() {
             errors.push(`${code}: ${err instanceof Error ? err.message : '未知錯誤'}`)
           }
         }),
-      )
+        (async () => {
+          try {
+            // 個股表現要算「今年以來」跟「近20日」，抓遠一點的歷史（500 天）確保涵蓋得到，
+            // 跟持股數量無關，只需要抓這一份
+            const from = new Date()
+            from.setDate(from.getDate() - 500)
+            const prices = await fetchTaiexPrices(from.toISOString().slice(0, 10), force)
+            const m = new Map<string, number>()
+            prices.forEach(p => m.set(p.date, p.close))
+            setTaiexPrices(m)
+          } catch (err) {
+            // 大盤指數只是輔助比較用，抓不到不影響個股資料，也不擋既有的錯誤提示
+            Sentry.captureException(err, { tags: { feature: 'taiex-price' } })
+          }
+        })(),
+      ])
     } finally {
       clearTimeout(safetyTimer)
       if (errors.length > 0) setError(`無法取得股價：${errors.join('；')}`)
@@ -672,7 +688,12 @@ export default function App() {
             />
           )}
           {holdings.length > 0 && (
-            <StockPerformanceTable holdings={holdings} pricesByStock={pricesByStock} names={stockNames} />
+            <StockPerformanceTable
+              holdings={holdings}
+              pricesByStock={pricesByStock}
+              names={stockNames}
+              taiexPrices={taiexPrices}
+            />
           )}
           {stockDetails.length > 0 && <StockDetails details={stockDetails} names={stockNames} onRename={setStockName} />}
           {holdings.length === 0 && stockDetails.length === 0 && (

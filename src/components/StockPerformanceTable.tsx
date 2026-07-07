@@ -6,6 +6,7 @@ interface Props {
   holdings: HoldingData[]
   pricesByStock: Map<string, Map<string, number>>
   names: Record<string, string>
+  taiexPrices?: Map<string, number>
 }
 
 type SortKey = 'change1d' | 'change5d' | 'change20d' | 'changeYTD'
@@ -27,7 +28,7 @@ function Pct({ value }: { value: number | null }) {
   )
 }
 
-export default function StockPerformanceTable({ holdings, pricesByStock, names }: Props) {
+export default function StockPerformanceTable({ holdings, pricesByStock, names, taiexPrices }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('change1d')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -35,6 +36,12 @@ export default function StockPerformanceTable({ holdings, pricesByStock, names }
     () => getStockPerformance(holdings.map(h => h.stockCode), pricesByStock),
     [holdings, pricesByStock],
   )
+
+  // 加權指數當固定參考列，不參與排序、獨立算（沿用同一套交易日回推邏輯）
+  const taiex = useMemo(() => {
+    if (!taiexPrices || taiexPrices.size === 0) return null
+    return getStockPerformance(['__TAIEX__'], new Map([['__TAIEX__', taiexPrices]]))[0]
+  }, [taiexPrices])
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -74,6 +81,15 @@ export default function StockPerformanceTable({ holdings, pricesByStock, names }
             </tr>
           </thead>
           <tbody>
+            {taiex && (
+              <tr className="border-b border-gray-100 bg-amber-50/40">
+                <td className="py-2 font-semibold text-amber-600 whitespace-nowrap">加權指數</td>
+                <td className="py-2 text-right"><Pct value={taiex.change1d} /></td>
+                <td className="py-2 text-right"><Pct value={taiex.change5d} /></td>
+                <td className="py-2 text-right"><Pct value={taiex.change20d} /></td>
+                <td className="py-2 text-right"><Pct value={taiex.changeYTD} /></td>
+              </tr>
+            )}
             {sorted.map(r => (
               <tr key={r.stockCode} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="py-2 font-semibold text-gray-900 whitespace-nowrap">

@@ -149,6 +149,41 @@ async function fetchTWSEMonth(stockCode: string, year: number, month: number): P
   return prices
 }
 
+// 加權指數（大盤）：TWSE「每日市場成交資訊」FMTQIK，同樣以月為單位、格式跟 STOCK_DAY 一致
+async function fetchTaiexMonth(year: number, month: number): Promise<StockPrice[]> {
+  const key = `taiex:${year}-${String(month).padStart(2, '0')}`
+  const cached = cacheGet(key, year, month)
+  if (cached) return cached
+
+  const date = `${year}${String(month).padStart(2, '0')}01`
+  const json = (await fetchJson(
+    `https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date=${date}&response=json`,
+  )) as { stat: string; data?: string[][] }
+
+  const stat = json.stat ?? ''
+  let prices: StockPrice[] = []
+  if (stat === 'OK' && json.data?.length) {
+    prices = json.data.flatMap(row => {
+      const close = parseClose(row[4]) // 欄位順序：日期/成交股數/成交金額/成交筆數/發行量加權股價指數/漲跌點數
+      return close === null ? [] : [{ date: rocToISO(row[0]), close }]
+    })
+  } else if (!stat.includes('沒有符合') && stat !== 'OK') {
+    throw new PriceFetchError('證交所查詢過於頻繁，請等一分鐘後再按「更新股價」')
+  }
+
+  cacheSet(key, prices)
+  return prices
+}
+
+export async function fetchTaiexPrices(fromDate: string, forceRefresh = false): Promise<StockPrice[]> {
+  if (forceRefresh) {
+    const now = new Date()
+    monthCache.delete(`taiex:${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    persistCache()
+  }
+  return collectAllMonths((y, m) => fetchTaiexMonth(y, m), fromDate)
+}
+
 async function fetchTPExMonth(stockCode: string, year: number, month: number): Promise<StockPrice[]> {
   const key = `tpex:${stockCode}:${year}-${String(month).padStart(2, '0')}`
   const cached = cacheGet(key, year, month)
