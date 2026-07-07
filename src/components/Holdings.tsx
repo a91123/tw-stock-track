@@ -50,16 +50,25 @@ function SplitDialog({
   const splits = priceMap && priceMap.size > 0 ? detectSplitsFromPriceMap(priceMap) : []
   const [selected, setSelected] = useState<string | null>(splits[0]?.date ?? null)
 
+  // 比例是從股價反推估計出來的（當天正常漲跌也會摻進去，跟官方公告的整數倍率會有落差，
+  // 例如反推出 25.02 但官方其實是 24:1），所以這裡只當「草稿」，永遠可編輯覆蓋
+  const [ratioInput, setRatioInput] = useState(() => {
+    const first = splits[0]
+    return first ? String(Math.round(first.ratio * 10) / 10) : '2'
+  })
+
   // Fallback manual state (used when auto-detect finds nothing)
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [manualRatio, setManualRatio] = useState('2')
 
   const noData = !priceMap || priceMap.size === 0
 
   const activeDate = splits.length > 0 ? selected : manualDate
-  const activeRatio = splits.length > 0
-    ? (splits.find(s => s.date === selected)?.ratio ?? 1)
-    : parseFloat(manualRatio)
+  const activeRatio = parseFloat(ratioInput)
+
+  function selectSplit(s: SplitEvent) {
+    setSelected(s.date)
+    setRatioInput(String(Math.round(s.ratio * 10) / 10))
+  }
 
   const affected = transactions.filter(
     t => t.stockCode === code && !!activeDate && t.date <= activeDate && (t.type === 'buy' || t.type === 'sell' || t.type === 'stockDividend'),
@@ -101,8 +110,8 @@ function SplitDialog({
               <label className="block text-xs text-gray-500 mb-1">分割比例（2:1 填 2，反向合股 1:2 填 0.5）</label>
               <input
                 type="number"
-                value={manualRatio}
-                onChange={e => setManualRatio(e.target.value)}
+                value={ratioInput}
+                onChange={e => setRatioInput(e.target.value)}
                 step="0.5"
                 min="0.1"
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
@@ -110,12 +119,12 @@ function SplitDialog({
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="text-xs text-gray-500">從歷史股價偵測到以下分割事件，請選擇要套用的項目：</p>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">從歷史股價偵測到以下分割事件，請選擇日期：</p>
             {splits.map(s => {
               const label = s.ratio > 1
-                ? `${Math.round(s.ratio * 10) / 10}:1 分割`
-                : `1:${Math.round((1 / s.ratio) * 10) / 10} 合股`
+                ? `約 ${Math.round(s.ratio * 10) / 10}:1 分割`
+                : `約 1:${Math.round((1 / s.ratio) * 10) / 10} 合股`
               return (
                 <label
                   key={s.date}
@@ -125,7 +134,7 @@ function SplitDialog({
                     type="radio"
                     name="split-event"
                     checked={selected === s.date}
-                    onChange={() => setSelected(s.date)}
+                    onChange={() => selectSplit(s)}
                     className="accent-amber-500"
                   />
                   <div>
@@ -135,6 +144,19 @@ function SplitDialog({
                 </label>
               )
             })}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                套用比例（用股價估算，僅供參考——請自行核對官方公告的正確倍率）
+              </label>
+              <input
+                type="number"
+                value={ratioInput}
+                onChange={e => setRatioInput(e.target.value)}
+                step="0.5"
+                min="0.1"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-400"
+              />
+            </div>
           </div>
         )}
 
