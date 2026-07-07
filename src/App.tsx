@@ -320,10 +320,15 @@ export default function App() {
         price: Math.round((tx.price / ratio) * 1e4) / 1e4,
       }
     }))
-    setAppliedSplits(prev => ({
-      ...prev,
-      [code]: [...(prev[code] ?? []), { splitDate, ratio, appliedAt: new Date().toISOString() }],
-    }))
+    setAppliedSplits(prev => {
+      // 同一天只保留一筆紀錄：重新套用同一個日期是「更正」，不是新增一次分割事件，
+      // 蓋掉舊的一筆，避免歷史股價校正時被同一天的多筆紀錄重複疊乘
+      const others = (prev[code] ?? []).filter(s => s.splitDate !== splitDate)
+      return {
+        ...prev,
+        [code]: [...others, { splitDate, ratio, appliedAt: new Date().toISOString() }],
+      }
+    })
   }
 
   function updateFeeSettings(s: FeeSettings) {

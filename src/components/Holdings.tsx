@@ -69,7 +69,10 @@ function SplitDialog({
 
   const activeDate = splits.length > 0 ? selected : manualDate
   const activeRatio = parseFloat(ratioInput)
-  const priorApplication = history.find(h => h.splitDate === activeDate)
+  // 同一天可能有殘留的多筆舊紀錄（早期版本沒有覆蓋機制），取最新的一筆代表目前狀態
+  const priorApplication = history
+    .filter(h => h.splitDate === activeDate)
+    .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))[0]
 
   function selectSplit(s: SplitEvent) {
     setSelected(s.date)
