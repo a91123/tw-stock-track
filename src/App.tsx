@@ -6,6 +6,7 @@ import { loadUserData, saveUserData, loadNewsCache, saveNewsCache, NewsCache, Pr
 import { fetchStockNews, fetchAllHoldingsNews, loadGeminiKey, NewsItem } from './services/gemini'
 import { Transaction } from './types'
 import { fetchStockPrices, fetchTaiexPrices, getStockMarket } from './services/stockPrices'
+import { adjustPricesForSplits } from './utils/priceAdjust'
 import { fetchRealtimeQuotes, fetchStockNames, StockSymbol } from './services/realtimeQuotes'
 import { isTradingHours } from './utils/market'
 import { calculateDailyPnL, computeSummary, getCurrentHoldings, getStockDetails, getSharesOnDate } from './utils/pnl'
@@ -330,9 +331,22 @@ export default function App() {
     saveFeeSettings(s)
   }
 
+  // 分割只改寫了交易紀錄（股數/成本），沒有動到抓回來的原始歷史股價 — 分割日之前的股價
+  // 還是舊制，直接拿來跟現在（新制股數）的計算配對會對不齊。用使用者確認過的精確比例
+  // （appliedSplits，不是股價反推的估計值）回頭校正，讓所有跨時間的計算基準一致。
+  const adjustedPricesByStock = useMemo(() => {
+    if (Object.keys(appliedSplits).length === 0) return pricesByStock
+    const result = new Map<string, Map<string, number>>()
+    pricesByStock.forEach((prices, code) => {
+      const splits = appliedSplits[code]
+      result.set(code, splits && splits.length > 0 ? adjustPricesForSplits(prices, splits) : prices)
+    })
+    return result
+  }, [pricesByStock, appliedSplits])
+
   const dailyPnL = useMemo(
-    () => calculateDailyPnL(transactions, pricesByStock, feeSettings),
-    [transactions, pricesByStock, feeSettings],
+    () => calculateDailyPnL(transactions, adjustedPricesByStock, feeSettings),
+    [transactions, adjustedPricesByStock, feeSettings],
   )
 
   useEffect(() => {
@@ -392,13 +406,13 @@ export default function App() {
 
   const currentPrices = useMemo(() => {
     const m = new Map<string, number>()
-    pricesByStock.forEach((prices, code) => {
+    adjustedPricesByStock.forEach((prices, code) => {
       const sorted = [...prices.entries()].sort(([a], [b]) => b.localeCompare(a))
       if (sorted.length > 0) m.set(code, sorted[0][1])
     })
     realtimePrices.forEach((price, code) => m.set(code, price))
     return m
-  }, [pricesByStock, realtimePrices])
+  }, [adjustedPricesByStock, realtimePrices])
 
   const holdings = useMemo(
     () => getCurrentHoldings(transactions, currentPrices, feeSettings),
@@ -614,7 +628,7 @@ export default function App() {
             <BenchmarkComparison
               firstBuyDate={transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0].date)}
               portfolioReturn={summary.returnRate}
-              pricesByStock={pricesByStock}
+              pricesByStock={adjustedPricesByStock}
               holdings={stockDetails}
             />
           )}
@@ -686,7 +700,7 @@ export default function App() {
               isRealtime={realtimePrices.size > 0}
               names={stockNames}
               priceAlerts={priceAlerts}
-              pricesByStock={pricesByStock}
+              pricesByStock={adjustedPricesByStock}
               transactions={transactions}
               appliedSplits={appliedSplits}
               onRename={setStockName}
@@ -697,7 +711,7 @@ export default function App() {
           {holdings.length > 0 && (
             <StockPerformanceTable
               holdings={holdings}
-              pricesByStock={pricesByStock}
+              pricesByStock={adjustedPricesByStock}
               names={stockNames}
               taiexPrices={taiexPrices}
             />
