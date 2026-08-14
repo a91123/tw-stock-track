@@ -12,11 +12,28 @@ initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
 const collections = await db.listCollections();
+console.log('root collections:', collections.map((c) => c.id));
 
-for (const col of collections) {
-  const snapshot = await col.limit(1000).get();
-  console.log(`\n=== ${col.id} (${snapshot.size} 筆) ===`);
-  snapshot.docs.slice(0, 3).forEach((doc) => {
-    console.log(`- ${doc.id}:`, JSON.stringify(doc.data()));
-  });
+// users collection itself might be empty (ghost docs) but have subcollections.
+// Try a few likely subcollection names via collectionGroup.
+const guesses = ['transactions', 'portfolios', 'holdings', 'users', 'stocks', 'settings'];
+for (const name of guesses) {
+  try {
+    const snap = await db.collectionGroup(name).limit(3).get();
+    console.log(`\n=== collectionGroup(${name}) : ${snap.size} 筆 (取樣) ===`);
+    snap.docs.forEach((doc) => {
+      console.log(`- path=${doc.ref.path}`);
+      console.log(`  data=${JSON.stringify(doc.data()).slice(0, 300)}`);
+    });
+  } catch (e) {
+    console.log(`\n=== collectionGroup(${name}) 錯誤: ${e.message} ===`);
+  }
 }
+
+console.log('\n=== collectionGroup(data) 全部 users/{uid}/data/main ===')
+const dataSnap = await db.collectionGroup('data').get();
+dataSnap.docs.forEach((doc) => {
+  const d = doc.data();
+  const txCount = Array.isArray(d.transactions) ? d.transactions.length : 'n/a';
+  console.log(`- path=${doc.ref.path} keys=${Object.keys(d).join(',')} txCount=${txCount}`);
+});

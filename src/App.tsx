@@ -310,16 +310,18 @@ export default function App() {
     setUpdatingDivAmounts(false)
   }
 
-  function handleSplitAdjust(code: string, splitDate: string, ratio: number) {
-    setTransactions(prev => prev.map(tx => {
-      if (tx.stockCode !== code || tx.date > splitDate) return tx
-      if (tx.type !== 'buy' && tx.type !== 'sell' && tx.type !== 'stockDividend') return tx
-      return {
-        ...tx,
-        shares: Math.round(tx.shares * ratio * 1e6) / 1e6,
-        price: Math.round((tx.price / ratio) * 1e4) / 1e4,
-      }
-    }))
+  function handleSplitAdjust(code: string, splitDate: string, ratio: number, skipTransactions?: boolean) {
+    if (!skipTransactions) {
+      setTransactions(prev => prev.map(tx => {
+        if (tx.stockCode !== code || tx.date > splitDate) return tx
+        if (tx.type !== 'buy' && tx.type !== 'sell' && tx.type !== 'stockDividend') return tx
+        return {
+          ...tx,
+          shares: Math.round(tx.shares * ratio * 1e6) / 1e6,
+          price: Math.round((tx.price / ratio) * 1e4) / 1e4,
+        }
+      }))
+    }
     setAppliedSplits(prev => {
       // 同一天只保留一筆紀錄：重新套用同一個日期是「更正」，不是新增一次分割事件，
       // 蓋掉舊的一筆，避免歷史股價校正時被同一天的多筆紀錄重複疊乘

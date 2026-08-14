@@ -15,7 +15,7 @@ interface Props {
   appliedSplits: Record<string, AppliedSplit[]>
   onRename: (code: string, name: string) => void
   onSetAlert: (code: string, alert: PriceAlert) => void
-  onSplitAdjust: (code: string, splitDate: string, ratio: number) => void
+  onSplitAdjust: (code: string, splitDate: string, ratio: number, skipTransactions?: boolean) => void
 }
 
 interface SplitEvent {
@@ -46,7 +46,7 @@ function SplitDialog({
   transactions: Transaction[]
   priceMap: Map<string, number> | undefined
   history: AppliedSplit[]
-  onConfirm: (splitDate: string, ratio: number) => void
+  onConfirm: (splitDate: string, ratio: number, skipTransactions?: boolean) => void
   onClose: () => void
 }) {
   const splits = priceMap && priceMap.size > 0 ? detectSplitsFromPriceMap(priceMap) : []
@@ -64,6 +64,11 @@ function SplitDialog({
 
   // 同一個日期已經套用過分割 → 再套用一次股數會疊加，要求多勾一個確認才放行
   const [confirmOverride, setConfirmOverride] = useState(false)
+
+  // 分割日之前的交易若是事後補登（例如用券商截圖匯入），股數/價格通常已經是
+  // 分割後的規模 — 這種情況只需要校正歷史股價，交易紀錄不能再乘一次比例，
+  // 否則會疊加錯誤（股數變成分割比例的平方倍）
+  const [alreadyPostSplit, setAlreadyPostSplit] = useState(false)
 
   const noData = !priceMap || priceMap.size === 0
 
@@ -92,7 +97,7 @@ function SplitDialog({
   function handleConfirm() {
     if (!activeDate || isNaN(activeRatio) || activeRatio <= 0 || activeRatio === 1) return
     if (priorApplication && !confirmOverride) return
-    onConfirm(activeDate, activeRatio)
+    onConfirm(activeDate, activeRatio, alreadyPostSplit)
     onClose()
   }
 
@@ -196,13 +201,32 @@ function SplitDialog({
           </div>
         )}
 
+        {!noData && affected.length > 0 && (
+          <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+            <input
+              type="checkbox"
+              checked={alreadyPostSplit}
+              onChange={e => setAlreadyPostSplit(e.target.checked)}
+              className="accent-amber-500 mt-0.5"
+            />
+            <span>
+              這些交易是分割後才補登的（例如用券商截圖匯入），股數/價格已經是分割後的規模
+              —— 只校正歷史股價，不要再調整交易紀錄
+            </span>
+          </label>
+        )}
+
         {!noData && (
           <div className={`text-xs rounded-lg px-3 py-2 ${affected.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-400'}`}>
             {affected.length > 0 ? (
-              <>
-                ⚠ 將修改 {affected.length} 筆買賣/配股交易：股數 ×{activeRatio}、單價 ÷{activeRatio}。
-                操作後若填錯，以相反比例（{activeRatio === 0 ? '—' : (1 / activeRatio).toFixed(4)}）再執行一次可還原。
-              </>
+              alreadyPostSplit ? (
+                <>只校正歷史股價（÷{activeRatio}），{affected.length} 筆交易紀錄不會被修改。</>
+              ) : (
+                <>
+                  ⚠ 將修改 {affected.length} 筆買賣/配股交易：股數 ×{activeRatio}、單價 ÷{activeRatio}。
+                  操作後若填錯，以相反比例（{activeRatio === 0 ? '—' : (1 / activeRatio).toFixed(4)}）再執行一次可還原。
+                </>
+              )
             ) : (
               '所選日期前無買賣/配股交易，不會有任何變更。'
             )}
@@ -308,7 +332,7 @@ export default function Holdings({ holdings, isRealtime, names, priceAlerts, pri
         transactions={transactions}
         priceMap={pricesByStock.get(splitTarget)}
         history={appliedSplits[splitTarget] ?? []}
-        onConfirm={(splitDate, ratio) => onSplitAdjust(splitTarget, splitDate, ratio)}
+        onConfirm={(splitDate, ratio, skipTransactions) => onSplitAdjust(splitTarget, splitDate, ratio, skipTransactions)}
         onClose={() => setSplitTarget(null)}
       />
     )}
