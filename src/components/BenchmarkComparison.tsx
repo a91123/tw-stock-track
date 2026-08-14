@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchAdjustedPrices, clearAdjustedPriceCache } from '../services/adjustedPrices'
 import { fetchDividends, clearDividendCache, DividendRecord } from '../services/dividends'
-import { StockPrice, StockDetail } from '../types'
+import { StockPrice, StockDetail, Transaction } from '../types'
 
 interface Props {
   firstBuyDate: string
@@ -67,7 +67,18 @@ function computeBenchmarkReturn(
   }
 }
 
-/** 期間組合報酬：現在持股數 × fromDate 股價 → 現價 */
+/** 反推某股票在指定日期「當時」實際持有的股數（依交易紀錄逐筆累加） */
+function sharesHeldAsOf(transactions: Transaction[], asOfDate: string): number {
+  let shares = 0
+  for (const t of transactions) {
+    if (t.date > asOfDate) continue
+    if (t.type === 'buy' || t.type === 'stockDividend') shares += t.shares
+    else if (t.type === 'sell') shares -= t.shares
+  }
+  return shares
+}
+
+/** 期間組合報酬：以「期間起始日當時實際持有的股數」計算，而非現在股數 */
 function calcPortfolioReturn(
   pricesByStock: Map<string, Map<string, number>>,
   holdings: StockDetail[],
@@ -77,7 +88,7 @@ function calcPortfolioReturn(
   let endValue = 0
 
   for (const h of holdings) {
-    if (h.currentPrice === null || h.totalShares <= 0) continue
+    if (h.currentPrice === null) continue
     const priceMap = pricesByStock.get(h.stockCode)
     if (!priceMap) continue
 
@@ -85,9 +96,15 @@ function calcPortfolioReturn(
     const startDateKey = dates.find(d => d >= fromDate)
     if (!startDateKey) continue
 
+    // 期間起始日當時實際持有的股數，而非現在股數：
+    // 避免把期間內才加碼/新買的股數，誤算成期間起點就已持有，
+    // 導致用較低的歷史價回推出虛構的鉅額損益。
+    const sharesAtStart = sharesHeldAsOf(h.transactions, startDateKey)
+    if (sharesAtStart <= 0) continue
+
     const startPrice = priceMap.get(startDateKey)!
-    startValue += h.totalShares * startPrice
-    endValue += h.totalShares * h.currentPrice
+    startValue += sharesAtStart * startPrice
+    endValue += sharesAtStart * h.currentPrice
   }
 
   if (startValue <= 0) return null
